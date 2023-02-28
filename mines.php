@@ -3,65 +3,8 @@
 	<head>
 		<title>Monkysweeper</title>
 		<link rel="icon" type="image/x-icon" href="favicon.ico">
+		<link rel="stylesheet" href="lib/style.css">
 		<script src="lib/jquery.js"></script>
-
-		<style>
-			:root {
-				--cell-size: 40px;
-				--font-size: 34px;
-				--color1: rgb(0, 0, 255);
-				--color2: rgb(0, 128, 0);
-				--color3: rgb(255, 0, 0);
-				--color4: rgb(0, 0, 128);
-				--color5: rgb(128, 0, 0);
-				--color6: rgb(0, 128, 128);
-				--color7: rgb(0, 0, 0);
-				--color8: rgb(128, 128, 128);
-				--cell-background-color-revealed: rgb(218, 218, 218);
-				--cell-background-color-covered: rgb(80, 80, 80);
-				--cell-background-color-overflagged: rgb(255, 153, 153);
-			}
-			#container {
-				width: fit-content;
-				margin: auto;
-			}
-			#board {
-				border-collapse: collapse;
-				-webkit-user-select: none; /* Safari */
-				-ms-user-select: none; /* IE 10 and IE 11 */
-				user-select: none; /* Standard syntax */
-			}
-			.square {
-				background-color: var(--cell-background-color-revealed);
-				border: 1px solid rgb(153, 153, 153);
-				text-align: center;
-				vertical-align: middle;
-				width: var(--cell-size);
-				height: var(--cell-size);
-				margin: 0px;
-				padding: 0px;
-				font: var(--font-size) Helvetica;
-			}
-			.square[data-state=revealed] {
-				background-color: var(--cell-background-color-revealed);
-			}
-			.square[data-state=flagged] {
-				background-color: var(--cell-background-color-covered);
-				background-image: url('images/banana.png');
-				background-size: contain;
-			}
-			.square[data-state=covered] {
-				background-color: var(--cell-background-color-covered);
-			}
-			.square[data-state=mine] {
-				background-color: var(--cell-background-color-revealed);
-				background-image: url('images/monky.png');
-				background-size: contain;
-			}
-			.square[data-state=overflagged] {
-				background-color: var(--cell-background-color-overflagged);
-			}
-		</style>
 	</head>
 
 	<body>
@@ -233,7 +176,7 @@
 			}
 
 			// Handle game over
-			function gameOver() {
+			function gameOver(clickedRow, clickedCol) {
 				isGameOver = true;
 				// Show all the mines and reveal the game over message
 					for (let i = 0; i < rows; i++) {
@@ -282,7 +225,7 @@
 					let $tr = $('<tr></tr>');
 					$("#board").append($($tr));
 					for (let j = 0; j < cols; j++) {
-						let $td = $('<td class="square" data-row="' + i + '" data-col="' + j + '" data-state="covered"></td>');
+						let $td = $('<td class="square covered" data-row="' + i + '" data-col="' + j + '"></td>');
 						$tr.append($($td));
 					}
 				}
@@ -319,22 +262,21 @@
 					for (let j = 0; j < cols; j++) {
 						// Find the td element (square) of this row and col
 						const $td = $('td[data-row=' + i + '][data-col=' + j + ']');
+						$td.attr('class', 'square');
 
 						// Render visual state of this square
-						let state = "";
-						if (board[i][j].revealed && !board[i][j].isMine) {
-							if (board[i][j].neighborFlags > board[i][j].neighborMines)
-								state = "overflagged";
-							else
-								state = "revealed";
+						if (board[i][j].revealed) {
+							$td.addClass('revealed');
+							if (!board[i][j].isMine && board[i][j].neighborMines > 0 && board[i][j].neighborFlags > board[i][j].neighborMines)
+								$td.addClass('overflagged');
+							if (board[i][j].isMine)
+								$td.addClass('mine');
 						}
-						if (board[i][j].revealed && board[i][j].isMine)
-							state = "mine";
-						if (!board[i][j].revealed && !board[i][j].flagged)
-							state = "covered";
-						if (!board[i][j].revealed && board[i][j].flagged)
-							state = "flagged";
-						$td.attr('data-state', state);
+						if (!board[i][j].revealed) {
+							$td.addClass('covered');
+							if (!board[i][j].revealed && board[i][j].flagged)
+								$td.addClass('flagged');
+						}
 
 						// Render hint number of this square
 						if (board[i][j].revealed && board[i][j].neighborMines > 0) {
