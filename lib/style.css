@@ -21,6 +21,8 @@ body {
 }
 #container {
     width: fit-content;
+    background-color: gray;
+    padding: 20px;
     margin: auto;
 }
 #info {
