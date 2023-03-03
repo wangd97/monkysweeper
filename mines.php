@@ -2,8 +2,14 @@
 <html>
 	<head>
 		<title>Monkysweeper</title>
+		<style>
+			body{cursor: url('images/banana-covered-cursor.png'), default;}
+		</style>
 		<link rel="icon" type="image/x-icon" href="favicon.ico">
 		<link rel="stylesheet" href="lib/style.css">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300&family=Shantell+Sans:wght@300&family=Tilt+Neon&display=swap" rel="stylesheet">
 		<script src="lib/jquery.js"></script>
 	</head>
 
@@ -23,6 +29,7 @@
 			let numMines = 10;
 			let isGameStarted = false;
 			let isGameOver = false;
+			var audio = new Audio('audio/Roblox-death-sound.mp3');
 
 			renderBoardBeforeGameStarts();
 
@@ -186,6 +193,7 @@
 							}
 						}
 					}
+					audio.play();
 					alert('Game over!');
 			}
 
@@ -216,6 +224,7 @@
 					}
 				}
 				alert('Congratulations, you won!');
+				window.open('https://www.youtube.com/watch?v=ymdhRMiMGK0&ab_channel=GrimGriefer', 'popup', config='height=375,width=450')
 			}
 
 			function renderBoardBeforeGameStarts() {
