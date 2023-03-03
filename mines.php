@@ -35,7 +35,6 @@
 
 
 			/*
-      var audio = new Audio('audio/Roblox-death-sound.mp3');
 			let startTime; // The timestamp when the timer started
 			let elapsedTime = 0; // The total elapsed time in milliseconds
 			let timerInterval; // The ID of the setInterval() function that updates the timer
@@ -70,6 +69,7 @@
 
 
 			$("#board").on("contextmenu", function() {return false;});
+			var audio = new Audio('audio/Roblox-death-sound.mp3');
 
 			let boardData = {};
 			let board = [];
@@ -338,7 +338,8 @@
 				}
 
 				console.log('Congratulations, you won!');
-        window.open('https://www.youtube.com/watch?v=ymdhRMiMGK0&ab_channel=GrimGriefer', 'popup', config='height=375,width=450')
+				// TODO: uncomment the line below when Dylan FINALLY fixes his stuff smh
+        		// window.open('https://www.youtube.com/watch?v=ymdhRMiMGK0&ab_channel=GrimGriefer', 'popup', config='height=375,width=450')
 			}
 
 			function renderBoard () {
