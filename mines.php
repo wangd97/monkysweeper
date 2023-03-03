@@ -2,8 +2,14 @@
 <html>
 	<head>
 		<title>Monkysweeper</title>
+		<style>
+			body{cursor: url('images/banana-covered-cursor.png'), default;}
+		</style>
 		<link rel="icon" type="image/x-icon" href="favicon.ico">
 		<link rel="stylesheet" href="lib/style.css">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300&family=Shantell+Sans:wght@300&family=Tilt+Neon&display=swap" rel="stylesheet">
 		<script src="lib/jquery.js"></script>
 		<script src="lib/seedrandom.js"></script>
 		<script>Math.seedrandom(0);</script>
@@ -28,8 +34,8 @@
 
 
 
-
 			/*
+      var audio = new Audio('audio/Roblox-death-sound.mp3');
 			let startTime; // The timestamp when the timer started
 			let elapsedTime = 0; // The total elapsed time in milliseconds
 			let timerInterval; // The ID of the setInterval() function that updates the timer
@@ -308,6 +314,7 @@
 				board[clickedRow][clickedCol].exploded = true;
 
 				// Game over message
+        audio.play();
 				console.log('Game over!');
 			}
 
@@ -329,7 +336,9 @@
 						handleLeftClick(cell.row, cell.col);
 					}
 				}
+
 				console.log('Congratulations, you won!');
+        window.open('https://www.youtube.com/watch?v=ymdhRMiMGK0&ab_channel=GrimGriefer', 'popup', config='height=375,width=450')
 			}
 
 			function renderBoard () {

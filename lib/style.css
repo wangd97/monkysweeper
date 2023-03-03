@@ -1,6 +1,7 @@
 :root {
     --cell-size: 40px;
-    --board-font-size: 34px;
+    --font-size: 30px;
+    --board-font-size: 30px;
     --color1: rgb(0, 0, 255);
     --color2: rgb(0, 128, 0);
     --color3: rgb(255, 0, 0);
@@ -15,7 +16,8 @@
     --cell-background-color-exploded: rgb(255, 0, 0);
 }
 body {
-    background-color: black;
+    background-image: url(../images/monkey-background.png);
+    height: 100vh;
 }
 #container {
     width: fit-content;
@@ -41,7 +43,7 @@ body {
     height: var(--cell-size);
     margin: 0px;
     padding: 0px;
-    font: var(--board-font-size) Helvetica;
+    font: var(--font-size) 'Nunito';
 }
 .square.covered {
     background-color: var(--cell-background-color-covered);
