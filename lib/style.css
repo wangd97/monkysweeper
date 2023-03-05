@@ -18,12 +18,14 @@
 body {
     background-image: url(../images/monkey-background.png);
     height: 100vh;
+    cursor: url('../images/cursors/banana-covered-cursor.png'), default;
 }
 #container {
     width: fit-content;
     background-color: gray;
     padding: 20px;
     margin: auto;
+    cursor: url('../images/cursors/banana-peeled-cursor.png'), default;
 }
 #info {
     font: 34px Tahoma;

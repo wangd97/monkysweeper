@@ -2,9 +2,6 @@
 <html>
 	<head>
 		<title>Monkysweeper</title>
-		<style>
-			body{cursor: url('images/banana-covered-cursor.png'), default;}
-		</style>
 		<link rel="icon" type="image/x-icon" href="favicon.ico">
 		<link rel="stylesheet" href="lib/style.css">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,7 +71,7 @@
 			let boardData = {};
 			let board = [];
 			let allCells = [];
-			let wantDeducible = true;
+			let wantDeducible = false;
 
 			// Reset all default data
 			function cleanBoard () {
@@ -89,7 +86,7 @@
 					lost: false,
 					// for making board deducible
 					lastNPerturbanceChoices: ['', '', ''],
-					maxRecursionDepth: 5
+					globalDeductionMineThreshold: 15
 				};
 
 				board = [];
@@ -106,7 +103,9 @@
 							neighborMines: 0,
 							neighborFlags: 0,
 							neighbors: [],
-							exploded: false
+							exploded: false,
+							// for making board deducible
+							markedForDeduction: false
 						};
 						allCells.push(board[i][j]);
 					}
@@ -129,12 +128,7 @@
 				while (true) {
 					cleanBoard();
 					boardData.isGameStarted = true;
-					if (wantDeducible) {
-						if (initDeducibleMineLocations(clickedRow, clickedCol)) break;
-					}
-					else {
-						if (initRandomMineLocations(clickedRow, clickedCol)) break;
-					}
+					if (initMineLocations(clickedRow, clickedCol)) break;
 				}
 				handleLeftClick(clickedRow, clickedCol);
 				renderBoard();
@@ -142,19 +136,26 @@
 
 			// Make the board deducible by simulating a playthrough, and making changes if necessary
 			// Returns true if success, else returns false
-			function initDeducibleMineLocations (clickedRow, clickedCol) {
+			function initMineLocations (clickedRow, clickedCol) {
 
-				initRandomMineLocations(clickedRow, clickedCol);
-				handleLeftClick(clickedRow, clickedCol);
+				do {
+					cleanBoard();
+					boardData.isGameStarted = true;
+					initRandomMineLocations(clickedRow, clickedCol);
+					handleLeftClick(clickedRow, clickedCol);
+				} while (existsUndeducibleHiddenRegion());
 
 				let iterations = 0;
-				// Repeatedly deduce and perturb mines
-				while (deduce() || perturb());
+				if (true) {
+					// Repeatedly deduce and perturb mines
+					while (deduce() || perturb());
 
-				// If failed to generate deducible board, return false
-				if (!boardData.won) {
-					workTimes.retry++;
-					return false;
+					// If failed to generate deducible board, return false
+					if (!boardData.won) {
+						workTimes.retry++;
+						console.log('retry');
+						return false;
+					}
 				}
 
 				// Remember mine locations of deducible board
@@ -182,6 +183,19 @@
 
 				// Shuffle possibleMineCells and pick the first N cells to have a mine
 				shuffleArray(possibleMineCells).slice(0, boardData.numMines).forEach(cell => {cell.isMine = true});
+
+				// // For adding custom mine locations
+				// 	// rows: 4,
+				// 	// cols: 7,
+				// 	// numMines: 7,
+				// allCells.forEach(c => c.isMine = false);
+				// board[0][0].isMine = true;
+				// board[1][1].isMine = true;
+				// board[1][2].isMine = true;
+				// board[1][3].isMine = true;
+				// board[1][4].isMine = true;
+				// board[1][5].isMine = true;
+				// board[0][6].isMine = true;
 
 				updateMineInfo();
 
@@ -243,10 +257,6 @@
 			// Returns true if a change was made, false otherwise
 			function handleLeftClick (row, col) {
 
-				// if (row === 0 && col === 27) {
-				// 	throw new Error('error');
-				// }
-
 				// Game must not be over
 				if (boardData.isGameOver) return false;
 
@@ -278,6 +288,9 @@
 
 					// Reveal the square
 					cell.revealed = true;
+
+					// Mark this square's neighbors for deduction
+					cell.neighbors.forEach(n => n.markedForDeduction = true);
 
 					// Check for game over
 					if (cell.isMine) {
@@ -313,6 +326,9 @@
 				cell.flagged = !cell.flagged;
 				updateFlagInfo();
 
+				// Mark this square's neighbors for deduction
+				cell.neighbors.forEach(n => n.markedForDeduction = true);
+
 				return true;
 			}
 
@@ -326,7 +342,7 @@
 				board[clickedRow][clickedCol].exploded = true;
 
 				// Game over message
-        audio.play();
+        		audio.play();
 				console.log('Game over!');
 			}
 
@@ -416,6 +432,11 @@
 					// Reset classes
 					$td.attr('class', 'square');
 
+					// // Temp
+					// if (cell.isMine) {
+					// 	$td.addClass('mine');
+					// }
+
 					// Render visual state of this square
 					if (cell.revealed) {
 						$td.addClass('revealed');
@@ -452,17 +473,20 @@
 				// Q
 				if (e.which === 81) {
 					deduce();
+					savestates.save();
 					renderBoard();
 				}
 				// W
 				if (e.which === 87) {
 					perturb();
+					savestates.save();
 					renderBoard();
 				}
 				// E
 				if (e.which === 69) {
 					initSolver();
-					doHardDeduction();
+					savestates.save();
+					doLocalDeduction();
 					renderBoard();
 				}
 				// Ctrl + Z
@@ -508,67 +532,87 @@
 
 
 			let workTimes = {
+				hiddenRegions: 0,
+				retry: 0,
 				initSolver: 0,
 				doEasyDeduction: 0,
 				doAutoComplete: 0,
-				doHardDeduction: 0,
+				local: 0,
+				localsuccess: 0,
+				global: 0,
+				globalsuccess: 0,
+				clustering: 0,
+				helper: 0,
 				perturb: 0,
 				total: 0,
 				clusters: 0,
-				hardDeductionSuccesses: 0,
-				retry: 0,
 				maxDepth: 0
 			}
 			let time = 0;
 
 			let hintCells = [];
-			let oldClusters = [];
-			let clusters = [];
 
 			function deduce () {
 				// savestates.save();
-				console.log('q');
+				// console.log('q');
 
 				// Setup
-				time = Date.now();
+				let time = Date.now();
 				if (!initSolver()) return false;
 				workTimes.initSolver += Date.now() - time;
 
 				// Deduce flags
 				time = Date.now();
-				if (doEasyDeduction()) return true;
-				workTimes.doEasyDeduction += Date.now() - time;
-				time = Date.now();
-				if (doAutoComplete()) return true;
-				workTimes.doAutoComplete += Date.now() - time;
-				time = Date.now();
-				if (doHardDeduction()) {
-					workTimes.hardDeductionSuccesses++;
+				if (doEasyDeduction()) {
+					workTimes.doEasyDeduction += Date.now() - time;
 					return true;
 				}
-				workTimes.doHardDeduction += Date.now() - time;
+				workTimes.doEasyDeduction += Date.now() - time;
+				time = Date.now();
+				if (doAutoComplete()) {
+					workTimes.doAutoComplete += Date.now() - time;
+					return true;
+				}
+				workTimes.doAutoComplete += Date.now() - time;
+				time = Date.now();
+				if (doLocalDeduction()) {
+					workTimes.localsuccess++;
+					workTimes.local += Date.now() - time;
+					return true;
+				}
+				workTimes.local += Date.now() - time;
+				time = Date.now();
+				if (boardData.numMines - boardData.numFlags <= boardData.globalDeductionMineThreshold && doGlobalDeduction()) {
+					workTimes.globalsuccess++;
+					workTimes.global += Date.now() - time;
+					return true;
+				}
+				workTimes.global += Date.now() - time;
 				// Fail to make a change
 				return false;
 			}
 
 			function perturb () {
 				// savestates.save();
-				console.log('w');
+				// console.log('w');
 
 				// Setup
 				time = Date.now();
 				if (!initSolver()) return false;
 				workTimes.initSolver += Date.now() - time;
 
-				time = Date.now();
+				let thisTime = Date.now();
+
+				let madeChanges = false;
 
 				// Perturb mines
 				if (hintCells.length > 0) {
-					return randomlyFillOrClearHint();
+					madeChanges = randomlyFillOrClearHint();
 				}
 				// Fail to make a change
-				workTimes.perturb += Date.now() - time;
-				return false;
+				workTimes.perturb += Date.now() - thisTime;
+
+				return madeChanges;
 			}
 
 			function initSolver () {
@@ -600,64 +644,101 @@
 				return madeChanges;
 			}
 
+			// A cluster is a local group of hints and unknown cells
+			// Starting with 1 hint, all other hints that share an unknown neighbor cell are also part of the cluster
+			// The unknown cells of the cluster contain all the unknown neighbors of all the hints in the cluster
+			// This function deduces the flags and safe cells for all clusters
+			// This is relatively fast; use this when easy deduction fails
+			function doLocalDeduction () {
+
+				// Find clusters
+				const clusters = findClustersToDeduce();
+
+				// Deduced all clusters; unmark all for deduction
+				allCells.forEach(c => c.markedForDeduction = false);
+
+				let [madeChanges, alwaysReachesFlagLimit] = deduceClusters(clusters);
+				return madeChanges;
+			}
+
+			// This function deduces the flags and safe cells for one cluster that contains the entire board's hints, and their neighboring unknown cells
+			// This is slow; use this near the end of the game when there are few mines remaining
+			function doGlobalDeduction () {
+
+				// All incomplete hints and all neighboring unknown cells go in the same cluster
+				const unknownCells = [];
+				hintCells.forEach(c => unknownCells.push(...c.neighbors.filter(n => !n.revealed && !n.flagged)));
+				const clusters = [
+					{
+						hintCells: hintCells,
+						unknownCells: [...new Set(unknownCells)]
+					}
+				];
+
+				// Deduced all clusters; unmark all for deduction
+				allCells.forEach(c => c.markedForDeduction = false);
+
+				let [madeChanges, alwaysReachesFlagLimit] = deduceClusters(clusters);
+
+				// If flag limit is always reached, then every unknown cell, that does not neighbor the hints, can be opened
+				if (alwaysReachesFlagLimit) {
+					const hiddenCells = allCells.filter(c => !c.revealed && !c.flagged && !unknownCells.includes(c));
+					hiddenCells.forEach(c => {
+						if (!c.revealed && handleLeftClick(c.row, c.col)) madeChanges = true;
+					});
+				}
+				return madeChanges;
+			}
+
 
 			let bigCallCounter = 0;
 			let tempTime = 0;
-			// Try every way to fill up horizon with flags
+			// Try every way to fill up cluster with flags
 			// If a cell is unflagged in every configuration, then we can open it
-			function doHardDeduction () {
-				bigCallCounter++;
-				
+			function deduceClusters (clusters) {
 				let madeChanges = false;
+				let alwaysReachesFlagLimit = false;
 
-				oldClusters = clusters;
-				findAllClusters();
-				removeSubsetClusters();
-				decideWhichClustersToAttemptDeduction();
+				bigCallCounter++;
 
 				// For each cluster: find every combination of flags that satisfies all hints in the cluster
 				for (const cluster of clusters) {
-
-					// If this cluster is not marked for deduction, skip it
-					if (!cluster.attemptDeduction) continue;
 
 					const alwaysSafeCells = [...cluster.unknownCells];
 					const alwaysFlaggedCells = [...cluster.unknownCells];
 
 					// Try every legal combination of flags
-					doHardDeductionHelper(cluster, alwaysSafeCells, alwaysFlaggedCells);
+					let time2 = Date.now();
+					alwaysReachesFlagLimit = deduceOneCluster(cluster, alwaysSafeCells, alwaysFlaggedCells) ||  alwaysReachesFlagLimit;
+					workTimes.helper += Date.now() - time2;
 
 					// If a cell is always safe, open it; or always flagged, flag it
 					alwaysSafeCells.forEach(c => {
-						if (handleLeftClick(c.row, c.col)) madeChanges = true;
+						if (!c.revealed && handleLeftClick(c.row, c.col)) madeChanges = true;
 					});
 					alwaysFlaggedCells.forEach(c => {
-						if (handleRightClick(c.row, c.col)) madeChanges = true;
+						if (!c.flagged && handleRightClick(c.row, c.col)) madeChanges = true;
 					});
 
-					//if (madeChanges) return true;
 				}
-				
-				// console.log('Always flagged: ' + horizonCoveredCells.filter(c => c.alwaysFlagged).map(c => '(' + c.row + ', ' + c.col + ')'));
-				// console.log('Always safe: ' + horizonCoveredCells.filter(c => c.alwaysSafe).map(c => '(' + c.row + ', ' + c.col + ')'));
 
-				return madeChanges;
+				return [madeChanges, alwaysReachesFlagLimit];
 			}
 
 			let callCounter = 0;
 
 			let depth = 1;
 			// Recursively makes every valid flag guess for a cluster
-			// Returns the minimum number of TOTAL flags when this cluster is completed
-			// Returns -1 if the recursion was aborted for going too deep; ignore results if this happens
-			function doHardDeductionHelper (cluster, alwaysSafeCells, alwaysFlaggedCells) {
+			// Pass in alwaysSafeCells and alwaysFlaggedCells are arrays that get modified in place
+			// Returns true if all flag configurations reach the flag limit, else returns false
+			function deduceOneCluster (cluster, alwaysSafeCells, alwaysFlaggedCells, alwaysReachesFlagLimit = true) {
 				callCounter++;
 
 				// Base case: if all hints satisfied and did not exceed flag limit: update "always flagged" and "always safe"
 				if (cluster.hintCells.every(c => c.neighborFlags === c.neighborMines)) {
 
 					// If used more flags than are available, this configuration fails
-					if (boardData.numFlags > boardData.numMines) return;
+					if (boardData.numFlags > boardData.numMines) return alwaysReachesFlagLimit;
 
 					// Configuration succeeded; mark which cells are no longer always safe or always flagged
 
@@ -671,11 +752,15 @@
 						alwaysFlaggedCells.splice(alwaysFlaggedCells.indexOf(c), 1);
 					});
 
-					return;
+					// If did not reach the flag limit, return false; therefore alwaysReachesFlagLimit is false
+					if (boardData.numFlags !== boardData.numMines) return false;
+					
+					// If the flag limit was reached, return the current boolean (default to true)
+					return alwaysReachesFlagLimit;
 				}
 
 				// Base case: If any cell has too many flags, this configuration fails
-				if (allCells.find(c => c.neighborFlags > c.neighborMines)) return;
+				if (hintCells.find(c => c.neighborFlags > c.neighborMines)) return alwaysReachesFlagLimit;
 
 				// General case: make guesses
 
@@ -686,23 +771,25 @@
 				// Find every combination of flags to complete this hint
 				const flagCombinations = getPowerSet(cell.neighbors.filter(n => !n.revealed && !n.flagged), flagsNeeded, flagsNeeded);
 
-				// Try every flag combination
+				// Try every legal flag combination
 				for (const flagCombination of flagCombinations) {
 
 					// Flag all suggested cells, to complete this hint
-					for (const cellToFlag of flagCombination) handleRightClick(cellToFlag.row, cellToFlag.col);
+					for (const cellToFlag of flagCombination) cellToFlag.flagged = true;
+					updateFlagInfo();
 
 					// Recurse to guess the next hint
 					depth++;
 					if (depth > workTimes.maxDepth) workTimes.maxDepth = depth;
-					doHardDeductionHelper(cluster, alwaysSafeCells, alwaysFlaggedCells);
+					alwaysReachesFlagLimit = deduceOneCluster(cluster, alwaysSafeCells, alwaysFlaggedCells, alwaysReachesFlagLimit);
 					depth--;
 
 					// Unflag these cells
-					for (const cellToFlag of flagCombination) handleRightClick(cellToFlag.row, cellToFlag.col);
+					for (const cellToFlag of flagCombination) cellToFlag.flagged = false;
+					updateFlagInfo();
 				}
 
-				return;
+				return alwaysReachesFlagLimit;
 			}
 
 			function getPowerSet(array, minSizeOfSubset = 0, maxSizeOfSubset = Infinity) {
@@ -711,7 +798,7 @@
 				for (const element of array) {
 					const last = subsets.length - 1;
 					for (let i = 0; i <= last; i++) {
-						if (subsets[i] >= maxSizeOfSubset) continue;
+						if (subsets[i].length >= maxSizeOfSubset) continue;
 						subsets.push([...subsets[i], element]);
 					}
 				}
@@ -719,28 +806,34 @@
 				return subsets.filter(element => element.length >= minSizeOfSubset);
 			}
 
-			function removeSubsetClusters() {
+			function removeSubsetClusters(clusters) {
 				const newClustersArray = [];
-				for (const a of clusters) {
-					let aIsSubset = false;
-					for (const b of clusters) {
-						if (a !== b && a.hintCells.every(cell => b.hintCells.includes(cell))) {
-							// a is a subset of b
-							aIsSubset = true;
-							break;
+				let madeChanges;
+				
+				do {
+					madeChanges = false;
+					for (const a of clusters) {
+						for (const b of clusters) {
+							if (a !== b && a.hintCells.every(c => b.hintCells.includes(c))) {
+								// a is a subset of b
+								clusters.splice(clusters.indexOf(a), 1);
+								madeChanges = true;
+								break;
+							}
 						}
+						if (madeChanges) break;
 					}
-					if (!aIsSubset) newClustersArray.push(a);
-				}
-				clusters = newClustersArray;
+				} while (madeChanges);
+
+				return clusters;
 			}
 
 
 			// Each hint cell has its own cluster:
 			// together with all hint cells that are connected to the main hint cell by a shared unknown cell
 			// i.e. if you can go from: main hint cell -> unknown neighbor -> other hint cell, then other hint cell is in the cluster
-			function findAllClusters () {
-				clusters = [];
+			function findClustersToDeduce () {
+				let clusters = [];
 
 				// // Create a small cluster out of each hintCell (just the hint cell alone)
 				// for (cell of hintCells) {
@@ -756,6 +849,7 @@
 				// Create a cluster out of each hintCell
 				for (cell of hintCells) {
 
+					let isMarkedForDeduction = false;
 					const clusterHintCells = [cell];
 					const clusterUnknownCells = [];
 
@@ -771,39 +865,40 @@
 						clusterUnknownCells.push(...c.neighbors.filter(n => !n.revealed && !n.flagged));
 					});
 
+					// If no cell in this cluster is marked for deduction, ignore this cluster
+					if (!clusterHintCells.some(c => c.markedForDeduction) && !clusterUnknownCells.some(c => c.markedForDeduction)) continue;
+
 					const cluster = {
 						// Remove duplicates
 						hintCells: [...new Set(clusterHintCells)],
 						unknownCells: [...new Set(clusterUnknownCells)],
-						attemptDeduction: true
 					};
-					
-					// If this number is ever inaccurate, then the cluster changed and we can work on it again
-					cluster.numUnknownCellsWhenClusterWasCreated = cluster.unknownCells.length;
 
 					clusters.push(cluster);
 				}
+
+				return removeSubsetClusters(clusters);
 			}
 
-			function decideWhichClustersToAttemptDeduction () {
-				for (cluster of clusters) {
+			// function decideWhichClustersToAttemptDeduction () {
+			// 	for (cluster of clusters) {
 
-					// Check if this cluster already existed the last time 
-					const oldVersionOfCluster = oldClusters.find(oldCluster =>
-						oldCluster.hintCells.length === cluster.hintCells.length
-						&& oldCluster.hintCells.every(c => cluster.hintCells.includes(c))
-					);
+			// 		// Check if this cluster already existed the last time 
+			// 		const oldVersionOfCluster = oldClusters.find(oldCluster =>
+			// 			oldCluster.hintCells.length === cluster.hintCells.length
+			// 			&& oldCluster.hintCells.every(c => cluster.hintCells.includes(c))
+			// 		);
 
-					// If this cluster is brand new, keep the new cluster
-					if (!oldVersionOfCluster) continue;
+			// 		// If this cluster is brand new, keep the new cluster
+			// 		if (!oldVersionOfCluster) continue;
 
-					// If cluster has since been changed, keep the new cluster
-					if (oldVersionOfCluster.numUnknownCellsWhenClusterWasCreated !== cluster.numUnknownCellsWhenClusterWasCreated) continue;
+			// 		// If cluster has since been changed, keep the new cluster
+			// 		if (oldVersionOfCluster.numUnknownCellsWhenClusterWasCreated !== cluster.numUnknownCellsWhenClusterWasCreated) continue;
 
-					// This cluster already exists and has not changed, do not try and deduce it
-					cluster.attemptDeduction = false;
-				}
-			}
+			// 		// This cluster already exists and has not changed, do not try and deduce it
+			// 		cluster.attemptDeduction = false;
+			// 	}
+			// }
 
 			// Put obvious flags (where a number N only has N covered cells around it)
 			// If changes are made: return true; else return false
@@ -879,108 +974,190 @@
 				return array.reduce((a, b) => a + b, 0);
 			}
 
+			function expandUnknownCluster (cell, cluster = [], neighbors = []) {
+				
+				// If this cell is unknown, we may want it in the cluster
+				if (!cell.revealed && !cell.flagged) {
+
+					// If this cell is already in the cluster, do nothing
+					if (cluster.includes(cell)) return [cluster, neighbors];
+
+					// Add it to the cluster
+					cluster.push(cell);
+
+					// Check if its neighbors should be added
+					cell.neighbors.forEach(n => {expandUnknownCluster(n, cluster, neighbors)});
+				}
+
+				// This is a cell that neighbors the cluster
+				else {
+
+					// If this cell is already in neighbors, do nothing
+					if (neighbors.includes(cell)) return [cluster, neighbors];
+
+					// Add it to neighbors
+					neighbors.push(cell);
+				}
+
+				return [cluster, neighbors];
+			}
+
+			function tryToFillHint (hintCell) {
+				// coveredFarCells: unknown cells that are not neighboring hintCell
+				const coveredFarCells = allCells.filter(c => !c.revealed && !c.flagged && !hintCell.neighbors.includes(c));
+
+				// If there are not enough mines to bring to this hint, cannot choose fill
+				const availableMinesToBring = coveredFarCells.filter(c => c.isMine);
+				const cellsToAddMine = hintCell.neighbors.filter(n => !n.revealed && !n.flagged && !n.isMine);
+				const cellsToFlag = hintCell.neighbors.filter(n => !n.revealed && !n.flagged);
+				if (availableMinesToBring.length < cellsToAddMine.length) return false;
+
+				// Don't pick the same choice N+1 times in a row
+				if (boardData.lastNPerturbanceChoices.every(s => s === 'fill')) return false;
+				
+				// Try fill
+
+				// Surround hint with mines (only the unknown cells)
+				cellsToAddMine.forEach(n => n.isMine = true);
+
+				// Remove mines from other places, to correct mine count
+				const cellsToRemoveMine = shuffleArray(availableMinesToBring).slice(0, cellsToAddMine.length);
+				cellsToRemoveMine.forEach(c => c.isMine = false);
+
+				// If this just created a new undeducible hidden region, undo it; fill attempt failed
+				if (existsUndeducibleHiddenRegion()) {
+					cellsToAddMine.forEach(n => n.isMine = false);
+					cellsToRemoveMine.forEach(c => c.isMine = true);
+					return false;
+				}
+
+				// Fill succeeded
+				updateMineInfo();
+				return true;
+			}
+
+			function tryToClearHint (hintCell) {
+				// coveredFarCells: unknown cells that are not neighboring hintCell
+				const coveredFarCells = allCells.filter(c => !c.revealed && !c.flagged && !hintCell.neighbors.includes(c));
+
+				// If there are not enough cells to move mines away to, cannot choose clear
+				const availableCellsToGiveMines = coveredFarCells.filter(c => !c.isMine);
+				const cellsToRemoveMine = hintCell.neighbors.filter(n => !n.revealed && !n.flagged && n.isMine);
+				if (availableCellsToGiveMines.length < cellsToRemoveMine.length) return false;
+
+				// Don't pick the same choice N+1 times in a row
+				if (boardData.lastNPerturbanceChoices.every(s => s === 'clear')) return false;
+
+				// Try clear
+
+				// Clear all mines around hint
+				cellsToRemoveMine.forEach(n => n.isMine = false);
+
+				// Add mines to correct mine count
+				const cellsToAddMine = shuffleArray(availableCellsToGiveMines).slice(0, cellsToRemoveMine.length);
+				cellsToAddMine.forEach(c => c.isMine = true);
+
+				// If this just created a new undeducible hidden region, undo it; clear attempt failed
+				if (existsUndeducibleHiddenRegion()) {
+					cellsToAddMine.forEach(c => c.isMine = false);
+					cellsToRemoveMine.forEach(c => c.isMine = true);
+					return false;
+				}
+				
+				// Clear succeeded
+				updateMineInfo();
+				return true;
+			}
+
 			function randomlyFillOrClearHint () {
 
 				for (const hintCell of shuffleArray(hintCells)) {
-					const choices = ['fill', 'clear'];
-					
-					// coveredFarCells: covered unflagged cells that are not neighboring hintCell
-					const coveredFarCells = allCells.filter(c => !c.revealed && !c.flagged && !hintCell.neighbors.includes(c));
+					const choices = shuffleArray(['fill', 'clear']);
 
-					// If there are not enough cells to move mines away to, cannot choose clear
-					const availableCellsForMines = coveredFarCells.filter(c => !c.isMine);
-					const minesToRemove = hintCell.neighbors.filter(n => !n.revealed && !n.flagged && n.isMine);
-					if (availableCellsForMines.length < minesToRemove.length) {
-						choices.splice(choices.indexOf('clear'), 1);
+					// Try each choice until success
+					while (choices.length > 0) {
+						const choice = choices[0];
+						let choiceWorked = false;
+
+						if (choice === 'fill' && tryToFillHint(hintCell)) {
+							choiceWorked = true;
+						}
+						if (choice === 'clear' && tryToClearHint(hintCell)) {
+							choiceWorked = true;
+						}
+
+						if (choiceWorked) {
+							boardData.lastNPerturbanceChoices.shift();
+							boardData.lastNPerturbanceChoices.push(choice);
+							return true;
+						}
+						else {
+							choices.shift();
+						}
 					}
-
-					// If there are not enough mines to bring to this hint, cannot choose fill
-					const availableMinesToBring = coveredFarCells.filter(c => c.isMine);
-					const cellsToAddMine = hintCell.neighbors.filter(n => !n.revealed && !n.flagged && !n.isMine);
-					if (availableMinesToBring.length < cellsToAddMine.length) {
-						choices.splice(choices.indexOf('fill'), 1);
-					}
-
-					// If filling would create a boxed in group of unknown cells, cannot choose fill
-					// Simulate fill
-					
-
-					// Make choice of which action
-					let choice;
-
-					// Both choices are available
-					if (choices.length === 2) {
-						// If there is only 1 hint to work with, prefer clear (to avoid being boxed in)
-						if (hintCells.length === 1) choice = 'clear';
-						// Don't pick the same choice N+1 times in a row
-						else if (boardData.lastNPerturbanceChoices.every(s => s === 'fill')) choice = 'clear';
-						else if (boardData.lastNPerturbanceChoices.every(s => s === 'clear')) choice = 'fill';
-						// Pick randomly
-						else choice = getRandomElement(choices);
-					}
-					// 1 choice available; pick it
-					else if (choices.length === 1) {
-						choice = choices[0];
-					}
-					// Cannot clear nor fill: try next horizon hint cell
-					else {
-						continue;
-					}
-
-					// Update history of choices
-					boardData.lastNPerturbanceChoices.shift();
-					boardData.lastNPerturbanceChoices.push(choice);
-
-					// Surround hint with mines (only the covered cells)
-					if (choice === 'fill') {
-						let excessMines = 0;
-						cellsToAddMine.forEach(n => {
-							n.isMine = true;
-							excessMines++;
-						});
-
-						// Remove excess mines
-						shuffleArray(availableMinesToBring).slice(0, excessMines).forEach(c => {
-							c.isMine = false;
-						});
-					}
-
-					// Clear all mines around hint
-					else if (choice === 'clear') {
-						let mineDeficit = 0;
-						minesToRemove.forEach(n => {
-							n.isMine = false;
-							mineDeficit++;
-						});
-
-						// Add mines to make up deficit
-						shuffleArray(availableCellsForMines).slice(0, mineDeficit).forEach(c => {
-							c.isMine = true;
-						})
-					}
-
-					else {
-						alert('An impossible choice was made');
-					}
-
-					updateMineInfo();
-					return true;
 				}
 
 				// Failed to do an action
 				return false;
 			}
 
+			function existsUndeducibleHiddenRegion () {
+				let time1 = Date.now();
+				const [safeCluster, visibleMines] = expandSafeCluster();
+				workTimes.hiddenRegions += Date.now() - time1;
+
+				// If the safeCluster contains all the safe cells, then there is no undeducible hidden region
+				if (safeCluster.length === boardData.rows * boardData.cols - boardData.numMines) return false;
+
+				// If the visibleMines contains all the mine cells, then there is no undeducible hidden region
+				if (visibleMines.length === boardData.numMines) return false;
+
+				// Else, this means there is a hidden region with both safe cells and mines (undeducible)
+				return true;
+			}
+			
+			function expandSafeCluster (cell = allCells.find(c => c.revealed), safeCluster = [], visibleMines = []) {
+				
+				// If this cell is safe, we may want it in the cluster
+				if (!cell.isMine) {
+
+					// If this cell is already in the cluster, do nothing
+					if (safeCluster.includes(cell)) return [safeCluster, visibleMines];
+
+					// Add it to the cluster
+					safeCluster.push(cell);
+
+					// Check if its neighbors should be added
+					cell.neighbors.forEach(n => {expandSafeCluster(n, safeCluster, visibleMines)});
+				}
+
+				// This is a mine that touches the safe cluster
+				else {
+
+					// If this cell is already in neighbors, do nothing
+					if (visibleMines.includes(cell)) return [safeCluster, visibleMines];
+
+					// Add it to neighbors
+					visibleMines.push(cell);
+				}
+
+				return [safeCluster, visibleMines];
+			}
+
+
+
+
+
 			/*
 			TODO: 
-			- for fill and clear, have a preference for choosing to move mines that are on the horizon
-			- choose clear not just if it's the last hint, but if it's the last hint for that island of unknown cells
-			- after mines are generated, rerun solver to see if it's actually deducible (why isn't it??)
+			- clicking board[6][4] causes a game over
+			- once the board is done generating, try a full deduce on it to see if it actually works
+			- for fill and clear, have a preference for choosing to move mines that are on the horizon??
 			- no longer have the ability to solve a situation like:
 				0000000
 				2FFFFF2
 				0000000 with 2 bombs remaining
-
+				
 			*/
 
 
