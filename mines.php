@@ -1364,6 +1364,7 @@
 			// When you hold left click on an uncompleted hint, all the unknown cells around it "reveal" for a moment
 			function previewNeighbors (cell) {
 				const unknownNeighbors = cell.neighbors.filter(n => n.unknown);
+				$cell = cellToJQueryElement(cell);
 
 				// Render previewed neighbor unknown cells
 				unknownNeighbors.forEach(n => {
@@ -1373,9 +1374,10 @@
 				renderBoard();
 
 				// Set mouseup and mouseout to unpreview neighbors
-				cellToJQueryElement(cell).mouseup(unpreviewNeighbors).mouseout(unpreviewNeighbors);
+				$cell.mouseup(unpreviewNeighbors).mouseout(unpreviewNeighbors);
 				
 				function unpreviewNeighbors () {
+					$cell.off('mouseup').off('mouseout');
 					unknownNeighbors.forEach(n => {
 						n.markedForRendering = true;
 						n.previewing = false;
