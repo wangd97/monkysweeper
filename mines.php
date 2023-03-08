@@ -276,7 +276,7 @@
 			function startGame (clickedRow, clickedCol) {
 				workTimes.total = Date.now();
 				
-				resetRngSeed(999258680);
+				resetRngSeed();
 
 				if (forceDeducible) {
 					while (true) {
