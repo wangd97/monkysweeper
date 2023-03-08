@@ -22,10 +22,15 @@
 		<div id="container">
 			<div id="board"></div>
 			<div id="info-container">
-				<div id="timer"></div>
-				<div id="flags"></div>
-				<div id="safes"></div>
-				<div id="deaths"></div>
+				<div class="flexbox-left">
+					<div id="timer"></div>
+					<div id="flags"></div>
+					<div id="safes"></div>
+				</div>
+				<div class="flexbox-right">
+					<div id="hints"></div>
+					<div id="deaths"></div>
+				</div>
 			</div>
 		</div>
 
@@ -105,6 +110,7 @@
 
 			$("#board").on("contextmenu", function() {return false;});
 			var audio = new Audio('audio/Roblox-death-sound.mp3');
+			audio.preload = 'auto';
 
 			let boardInfo;
 			let board;
@@ -133,6 +139,8 @@
 						won: false,
 						lost: false,
 						numDeaths: 0,
+						numHintsUsed: 0,
+						numFlagErrors: 0,
 						// for making board deducible
 						suppressWin: false,
 						// lastNPerturbChoices: ['', '', ''],
@@ -197,50 +205,53 @@
 			}
 
 			function flagCell (cell) {
-				if (cell.unknown) {
-					cell.revealed = false;
-					cell.flagged = true;
-					cell.unknown = false;
+				if (!cell.unknown) return false;
 
-					// Update neighbors
-					cell.neighbors.forEach(n => {
-						n.neighborFlags++;
-						n.overflagged = n.neighborFlags > n.neighborMines;
-					});
+				cell.revealed = false;
+				cell.flagged = true;
+				cell.unknown = false;
 
-					boardInfo.numFlags++;
-					return true;
-				}
-				return false;
+				// Update neighbors
+				cell.neighbors.forEach(n => {
+					n.neighborFlags++;
+					n.overflagged = n.neighborFlags > n.neighborMines;
+				});
+
+				// Check if this flag is an error
+				if (!cell.mine) boardInfo.numFlagErrors++;
+
+				boardInfo.numFlags++;
+				return true;
 			}
 
 			function unflagCell (cell) {
-				if (cell.flagged) {
-					cell.revealed = false;
-					cell.flagged = false;
-					cell.unknown = true;
+				if (!cell.flagged) return false;
+			
+				cell.revealed = false;
+				cell.flagged = false;
+				cell.unknown = true;
 
-					// Update neighbors
-					cell.neighbors.forEach(n => {
-						n.neighborFlags--;
-						n.overflagged = n.neighborFlags > n.neighborMines;
-					});
+				// Update neighbors
+				cell.neighbors.forEach(n => {
+					n.neighborFlags--;
+					n.overflagged = n.neighborFlags > n.neighborMines;
+				});
 
-					boardInfo.numFlags--;
-					return true;
-				}
-				return false;
+				// Check if this flag previously an error
+				if (cell.mine) boardInfo.numFlagErrors--;
+
+				boardInfo.numFlags--;
+				return true;
 			}
 
 			function revealCell (cell) {
-				if (cell.unknown) {
-					cell.revealed = true;
-					cell.flagged = false;
-					cell.unknown = false;
-					if (!cell.mine) boardInfo.numUnknownSafes--;
-					return true;
-				}
-				return false;
+				if (!cell.unknown) return false;
+			
+				cell.revealed = true;
+				cell.flagged = false;
+				cell.unknown = false;
+				if (!cell.mine) boardInfo.numUnknownSafes--;
+				return true;
 			}
 
 			function putMine (cell) {
@@ -449,10 +460,9 @@
 			// Handle right-clicking to flag a square
 			// Returns true if a change was made, false otherwise
 			function handleRightClick (row, col) {
+				if (!boardInfo.isGameStarted || boardInfo.isGameOver) return false;
+				
 				const cell = board[row][col];
-
-				// Game must be started
-				if (!boardInfo.isGameStarted) return false;
 
 				// Cannot flag a revealed square
 				if (cell.revealed) return false;
@@ -530,6 +540,22 @@
 
 				// Display number of deaths
 				boardInfo.numDeaths > 0 ? $('#deaths').html('Deaths: ' + boardInfo.numDeaths) : $('#deaths').empty();
+
+				// Display number of hints used
+				boardInfo.numHintsUsed > 0 ? $('#hints').html('Hints: ' + boardInfo.numHintsUsed) : $('#hints').empty();
+
+				// If lost, render siren effect
+				if (boardInfo.lost) {
+					animateFlash(2, 'rgb(255, 0, 0)');
+				}
+				// Flawless victory
+				if (boardInfo.won && boardInfo.numDeaths === 0 && boardInfo.numHintsUsed === 0) {
+					animateFlash(3, 'rgb(255, 223, 0)');
+				}
+				// Cheated victory
+				else if (boardInfo.won) {
+					animateFlash(2, 'rgb(255, 255, 255)');
+				}
 			}
 
 			// Create a fully unknown board with event listeners
@@ -613,50 +639,44 @@
 					// Unmark cell for rendering
 					cell.markedForRendering = false;
 				}
-				
-				// If lost, render siren effect
-				if (boardInfo.lost) {
-					$('.square').addClass('flash');
-					const timeBetweenFlashes = 150; // ms
-					const numFlashes = 2;
+			}
 
-					const flashStyle = $('<style id="flash-style">.flash {background-color: red !important}</style>');
+			function animateFlash (numFlashes = 2, cssColorString = 'red', millisecondsBetweenFlashes = 150) {
+				const flashStyle = $('<style id="flash-style">.square {background-color: ' + cssColorString + ' !important}</style>');
 
-					for (let i = 0; i < numFlashes - 1; i++) flashOnce();
-					setTimeout(flashOnce, timeBetweenFlashes * 2);
+				for (let i = 0; i < numFlashes; i++) setTimeout(flashOnce, 2 * millisecondsBetweenFlashes * i);
 
-					function flashOnce () {
-						$('body').append(flashStyle);
-						setTimeout(function () {
-							flashStyle.remove();
-						}, timeBetweenFlashes);
-					}
+				function flashOnce () {
+					$('body').append(flashStyle);
+					setTimeout(function () {
+						flashStyle.remove();
+					}, millisecondsBetweenFlashes);
 				}
 			}
 
 
 
 
-
-
-			// Undos
-
 			$(document).keydown(function(e) {
 				// Q: Deduce
 				if (e.which === 81) {
-					deduce();
-					savestates.save();
-					renderBoard(true);
+					boardInfo.numHintsUsed++;
+					if (boardInfo.numFlagErrors === 0) {
+						deduce();
+						savestates.save();
+						renderBoard(true);
+					}
 				}
-				// W: Perturb
-				if (e.which === 87) {
-					perturb();
-					savestates.save();
-					renderBoard(true);
-				}
+				// // W: Perturb
+				// if (e.which === 87) {
+				// 	perturb();
+				// 	savestates.save();
+				// 	renderBoard(true);
+				// }
 				// R: Reset
 				if (e.which === 82) {
 					createBoard();
+					timer.reset();
 					savestates.save();
 					renderBoard(true);
 				}
@@ -687,12 +707,13 @@
 				undo: function() {
 					if (this.index <= 0) return;
 					this.index--;
-					const oldNumDeaths = boardInfo.numDeaths;
+					const oldBoardInfo = boardInfo;
 					createBoard({
 						boardInfo: structuredClone(this.states[this.index].boardInfo),
 						board: structuredClone(this.states[this.index].board)
 					});
-					boardInfo.numDeaths = oldNumDeaths;
+					boardInfo.numDeaths = oldBoardInfo.numDeaths;
+					boardInfo.numHintsUsed = oldBoardInfo.numHintsUsed;
 				},
 				redo: function() {
 					if (this.index + 1 >= this.states.length) return;
@@ -804,8 +825,6 @@
 
 			// Does easy flags + easy opens + cleanup
 			// Returns true if changes are made, else returns false
-
-			
 			function doEasyDeduction () {
 				let madeChanges = false;
 				if (doEasyFlags()) madeChanges = true;

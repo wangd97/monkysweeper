@@ -29,18 +29,28 @@ body {
     cursor: url('../images/cursors/banana-peeled-cursor.png') 4 1, default;
 }
 #info-container {
+    display: flex;
+    flex-direction: row;
     font: var(--info-font-size) 'Nunito';
     font-weight: 400;
     color: white;
-    display: flex;
-    flex-direction: row;
     margin-top: 5px;
 }
-#info-container div {
+.flexbox-left {
+    display: flex;
+    flex-direction: row;
+    margin-right: auto;
+}
+.flexbox-right {
+    display: flex;
+    flex-direction: row;
+    margin-left: auto;
+}
+#info-container .flexbox-left div {
     margin: 0 25px 0 2px;
 }
-#info-container #deaths {
-    margin: 0 2px 0 auto;
+#info-container .flexbox-right div {
+    margin: 0 2px 0 25px;
 }
 #board {
     display: grid;
