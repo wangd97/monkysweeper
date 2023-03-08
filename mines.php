@@ -270,13 +270,15 @@
 			function resetRngSeed (seed) {
 				if (seed === undefined) seed = Math.floor(Math.random() * 1000000000);
 				Math.seedrandom(seed);
-				console.log('RNG Seed: ' + seed);
+				return seed;
 			}
 
 			function startGame (clickedRow, clickedCol) {
 				workTimes.total = Date.now();
 				
-				resetRngSeed();
+				const seed = resetRngSeed();
+				console.log('RNG Seed: ' + seed);
+				console.log('(' + clickedRow + ', ' + clickedCol + ')');
 
 				if (forceDeducible) {
 					while (true) {
