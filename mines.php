@@ -4,20 +4,29 @@
 		<title>Monkysweeper</title>
 		<link rel="icon" type="image/x-icon" href="favicon.ico">
 		<link rel="stylesheet" href="lib/style.css">
+		
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300&family=Shantell+Sans:wght@300&family=Tilt+Neon&display=swap" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500&display=swap" rel="stylesheet">
+
 		<script src="lib/jquery.js"></script>
+
+		<script>let rngSeed = Math.floor(Math.random() * 1000000000);</script>
 		<script src="lib/seedrandom.js"></script>
-		<script>Math.seedrandom(0);</script>
+		<script>Math.seedrandom(rngSeed)</script>
+
 	</head>
 
 	<body>
 
 		<div id="container">
 			<div id="board"></div>
-			<div id="info"></div>
-			<div id="timer" style="color:white"></div>
+			<div id="info-container">
+				<div id="timer"></div>
+				<div id="flags"></div>
+				<div id="safes"></div>
+				<div id="deaths"></div>
+			</div>
 		</div>
 
 
@@ -30,38 +39,67 @@
 
 
 
-
-			/*
-			let startTime; // The timestamp when the timer started
-			let elapsedTime = 0; // The total elapsed time in milliseconds
-			let timerInterval; // The ID of the setInterval() function that updates the timer
-
-			function startTimer () {
-				startTime = Date.now(); // Record the current timestamp
-				timerInterval = setInterval(updateTimer, 100); // Update the timer every 100 milliseconds
+			const timer = {
+				state: 'stopped', // stopped, running, paused
+				startTime: undefined,
+				pauseTime: undefined,
+				elapsedTime: 0,
+				interval: undefined,
+				precision: 100, // ms
+				render: function () {
+					$('#timer').html(timer.format(timer.elapsedTime));
+				},
+				reset: function () {
+					timer.state = 'stopped';
+					timer.elapsedTime = 0;
+					clearInterval(timer.interval);
+					timer.render();
+				},
+				start: function () {
+					timer.state = 'running';
+					timer.startTime = Date.now();
+					timer.interval = setInterval(timer.updateWhileNotGameOver, timer.precision);
+				},
+				pause: function () {
+					if (timer.state === 'running') {
+						timer.pauseTime = Date.now();
+						timer.state = 'paused';
+					}
+				},
+				resume: function () {
+					if (timer.state === 'paused') {
+						timer.startTime += Date.now() - timer.pauseTime;
+						timer.state = 'running';
+					}
+				},
+				stop: function () {
+					timer.state = 'stopped';
+					clearInterval(timer.interval);
+					timer.update();
+				},
+				update: function () {
+					if (timer.state === 'running') {
+						timer.elapsedTime = Date.now() - timer.startTime;
+						timer.render();
+					}
+				},
+				updateWhileNotGameOver: function () {
+					if (boardInfo.isGameOver) {
+						timer.pause();
+					}
+					else {
+						timer.resume();
+					}
+					timer.update();
+				},
+				format: function (time) {
+					// Format the time in the format mm:ss
+					const minutes = Math.floor(time / 60000);
+					const seconds = Math.floor((time % 60000) / 1000);
+					return `${minutes.toString()}:${seconds.toString().padStart(2, '0')}`;
+				}
 			}
-
-			function stopTimer () {
-				clearInterval(timerInterval); // Stop the setInterval() function
-			}
-
-			function updateTimer () {
-				// Calculate the elapsed time since the timer started
-				const currentTime = Date.now();
-				elapsedTime = currentTime - startTime;
-
-				// Update the timer display with the new elapsed time
-				const timerDisplay = document.getElementById('timer');
-				timerDisplay.innerText = formatTime(elapsedTime);
-			}
-
-			function formatTime (time) {
-				// Format the time in the format mm:ss
-				const minutes = Math.floor(time / 60000);
-				const seconds = Math.floor((time % 60000) / 1000);
-				return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-			}
-			*/
+			
 
 
 
@@ -72,6 +110,7 @@
 			let board;
 			let allCells;
 			let forceDeducible = true;
+			let cellIntervals;
 
 			// If no data is passed in, reset all default data
 			// If data is passed in, it needs properties: boardInfo, board
@@ -88,16 +127,19 @@
 						totalMines: 170, // desired number of mines
 						numMines: 0, // actual number of mines currently on the board
 						numFlags: 0,
+						numUnknownSafes: undefined,
 						isGameStarted: false,
 						isGameOver: false,
 						won: false,
 						lost: false,
+						numDeaths: 0,
 						// for making board deducible
 						suppressWin: false,
 						// lastNPerturbChoices: ['', '', ''],
 						globalDeductionMineThreshold: 15,
 						maxRecursionDepth: 15
 					};
+					boardInfo.numUnknownSafes = boardInfo.rows * boardInfo.cols - boardInfo.totalMines;
 				}
 
 				// Create board (2D array of every cell)
@@ -124,9 +166,10 @@
 								neighborMines: 0,
 								neighborFlags: 0,
 
-								// Special states
+								// Cosmetic states
 								overflagged: false,
 								exploded: false,
+								previewing: false,
 
 								// False for first clicked cell & its neighbors
 								canBeMine: true,
@@ -148,6 +191,9 @@
 				allCells.forEach(c => {
 					c.neighbors = allCells.filter(n => Math.abs(c.row - n.row) <= 1 && Math.abs(c.col - n.col) <= 1 && n !== c);
 				})
+
+				// // Create 2D array to hold intervals (from setInterval) for each cell
+				// cellIntervals = Array(boardInfo.rows).fill().map(() => Array(boardInfo.cols).fill());
 			}
 
 			function flagCell (cell) {
@@ -191,6 +237,7 @@
 					cell.revealed = true;
 					cell.flagged = false;
 					cell.unknown = false;
+					if (!cell.mine) boardInfo.numUnknownSafes--;
 					return true;
 				}
 				return false;
@@ -220,8 +267,16 @@
 				return true;
 			}
 
+			function resetRngSeed (seed) {
+				if (seed === undefined) seed = Math.floor(Math.random() * 1000000000);
+				Math.seedrandom(seed);
+				console.log('RNG Seed: ' + seed);
+			}
+
 			function startGame (clickedRow, clickedCol) {
 				workTimes.total = Date.now();
+				
+				resetRngSeed(999258680);
 
 				if (forceDeducible) {
 					while (true) {
@@ -229,10 +284,10 @@
 					}
 				}
 				else {
-					createBoard();
 					initRandomMineLocations(clickedRow, clickedCol);
-					boardInfo.isGameStarted = true;
 				}
+				boardInfo.isGameStarted = true;
+				timer.start();
 
 				// Timing
 				let time1 = Date.now();
@@ -251,22 +306,17 @@
 					boardInfo.suppressWin = true;
 					initRandomMineLocations(clickedRow, clickedCol);
 					moveUndeducibleMines();
-					handleLeftClick(clickedRow, clickedCol);
 				} while (existsUndeducibleHiddenRegion());
 
-				let iterations = 0;
-				if (true) {
-					// Repeatedly deduce and perturb mines
-					while (deduce() || perturb());
+				// Repeatedly deduce and perturb mines
+				handleLeftClick(clickedRow, clickedCol);
+				while (deduce() || perturb());
 
-					// If failed to generate deducible board, return false
-					if (!boardInfo.won) {
-						workTimes.retry++;
-						return false;
-					}
+				// If failed to generate deducible board, return false
+				if (!boardInfo.won) {
+					workTimes.retry++;
+					return false;
 				}
-				
-				boardInfo.suppressWin = false;
 
 				// Remember mine locations of deducible board
 				// Careful: mineCells contains discarded cells that are not part of the board variable
@@ -274,15 +324,15 @@
 
 				// Reset board
 				createBoard();
+
 				const clickedCell = board[clickedRow][clickedCol];
 				clickedCell.canBeMine = false;
 				clickedCell.neighbors.forEach(n => n.canBeMine = false);
-				boardInfo.isGameStarted = true;
 
 				// Place mines on the board
 				// Careful: mineCells contains discarded cells that are not part of the board variable
 				mineCells.forEach(c => putMine(board[c.row][c.col]));
-
+				
 				return true;
 			}
 
@@ -337,14 +387,19 @@
 				// Cell is not defined until now, since board gets reset to new cells after deduction
 				const cell = board[row][col];
 
-				// If square is already revealed
-				if (cell.revealed) {
+				// If square is a revealed hint
+				if (cell.revealed && cell.neighborMines > 0 && !cell.mine) {
 
-					// If Flags == Mines, then can reveal surrounding unknown squares
+					// If flags < mines, then preview the unknown neighbors
+					if (cell.neighborFlags < cell.neighborMines) {
+						previewNeighbors(cell);
+					}
+
+					// If flags == mines, then reveal unknown neighbors
 					let madeChanges = false;
 					if (cell.neighborFlags === cell.neighborMines) {
-						cell.neighbors.filter(n => n.unknown).forEach(n => {
-							if (handleLeftClick(n.row, n.col)) madeChanges = true;
+						cell.neighbors.forEach(n => {
+							if (n.unknown && handleLeftClick(n.row, n.col)) madeChanges = true;
 						});
 					}
 					return madeChanges;
@@ -362,17 +417,20 @@
 					// Reveal the square
 					revealCell(cell);
 
-					// Mark this square's neighbors for deduction
-					cell.neighbors.forEach(n => n.markedForDeduction = true);
-
 					// Check for game over
 					if (cell.mine) {
 						lose(cell);
+						return true;
 					}
+
+					// Mark this square's neighbors for deduction
+					cell.neighbors.forEach(n => n.markedForDeduction = true);
 
 					// If the square has no neighboring mines, reveal its neighbors
 					if (cell.neighborMines == 0) {
-						cell.neighbors.filter(c => c.unknown).forEach(c => handleLeftClick(c.row, c.col));
+						cell.neighbors.forEach(n => {
+							if (n.unknown) handleLeftClick(n.row, n.col);
+						});
 					}
 
 					// Check for victory
@@ -382,6 +440,8 @@
 
 					return true;
 				}
+
+				return false;
 			}
 
 			// Handle right-clicking to flag a square
@@ -412,8 +472,10 @@
 
 			// Handle lose
 			function lose (cell) {
+				
 				boardInfo.isGameOver = true;
 				boardInfo.lost = true;
+				boardInfo.numDeaths++;
 				
 				revealCell(cell);
 				cell.exploded = true;
@@ -457,7 +519,15 @@
 				else {
 					renderBoardAfterGameStarted(renderWholeBoard);
 				}
-				$('#info').html('Mines Remaining: ' + (boardInfo.numMines - boardInfo.numFlags));
+
+				// Display how many flags placed
+				$('#flags').html('Mines: ' + boardInfo.numFlags + '/' + boardInfo.totalMines);
+
+				// Near the end of the game, display how many safe squares remaining
+				boardInfo.numUnknownSafes < 10 ? $('#safes').html('Safe: ' + boardInfo.numUnknownSafes) : $('#safes').empty();
+
+				// Display number of deaths
+				boardInfo.numDeaths > 0 ? $('#deaths').html('Deaths: ' + boardInfo.numDeaths) : $('#deaths').empty();
 			}
 
 			// Create a fully unknown board with event listeners
@@ -481,18 +551,18 @@
 					const LEFT_CLICK = 1;
 					const RIGHT_CLICK = 3;
 
-					const i = parseInt($(square).attr('data-row'));
-					const j = parseInt($(square).attr('data-col'));
+					const row = parseInt($(square).attr('data-row'));
+					const col = parseInt($(square).attr('data-col'));
 
-					$(square).on('mousedown', (e) => {
+					$(square).mousedown((e) => {
 						if (e.which == LEFT_CLICK) {
-							if (handleLeftClick(i, j)) {
+							if (handleLeftClick(row, col)) {
 								savestates.save();
 								renderBoard();
 							}
 						}
 						if (e.which == RIGHT_CLICK) {
-							if (handleRightClick(i, j)) {
+							if (handleRightClick(row, col)) {
 								savestates.save();
 								renderBoard();
 							}
@@ -513,11 +583,6 @@
 					// Reset classes
 					$cell.attr('class', 'square');
 
-					// // Temp
-					// if (cell.mine) {
-					// 	$cell.addClass('mine');
-					// }
-
 					// Render visual state of this square
 					if (cell.exploded)
 						$cell.addClass('mine').addClass('exploded');
@@ -528,6 +593,8 @@
 					}
 					if (cell.unknown) {
 						$cell.addClass('unknown');
+						if (cell.previewing)
+							$cell.addClass('previewing');
 					}
 					if (cell.flagged)
 							$cell.addClass('flagged');
@@ -543,6 +610,25 @@
 
 					// Unmark cell for rendering
 					cell.markedForRendering = false;
+				}
+				
+				// If lost, render siren effect
+				if (boardInfo.lost) {
+					$('.square').addClass('flash');
+					const timeBetweenFlashes = 150; // ms
+					const numFlashes = 2;
+
+					const flashStyle = $('<style id="flash-style">.flash {background-color: red !important}</style>');
+
+					for (let i = 0; i < numFlashes - 1; i++) flashOnce();
+					setTimeout(flashOnce, timeBetweenFlashes * 2);
+
+					function flashOnce () {
+						$('body').append(flashStyle);
+						setTimeout(function () {
+							flashStyle.remove();
+						}, timeBetweenFlashes);
+					}
 				}
 			}
 
@@ -599,10 +685,12 @@
 				undo: function() {
 					if (this.index <= 0) return;
 					this.index--;
+					const oldNumDeaths = boardInfo.numDeaths;
 					createBoard({
 						boardInfo: structuredClone(this.states[this.index].boardInfo),
 						board: structuredClone(this.states[this.index].board)
 					});
+					boardInfo.numDeaths = oldNumDeaths;
 				},
 				redo: function() {
 					if (this.index + 1 >= this.states.length) return;
@@ -763,7 +851,7 @@
 				if (cluster.alwaysReachesFlagLimit) {
 					const hiddenCells = allCells.filter(c => c.unknown && !unknownCells.includes(c));
 					hiddenCells.forEach(c => {
-						if (handleLeftClick(c.row, c.col)) madeChanges = true;
+						if (c.unknown && handleLeftClick(c.row, c.col)) madeChanges = true;
 					});
 				}
 
@@ -799,7 +887,7 @@
 
 					// If a cell is always safe, open it
 					results.alwaysSafeCells.forEach(c => {
-						if (handleLeftClick(c.row, c.col)) madeChanges = true;
+						if (c.unknown && handleLeftClick(c.row, c.col)) madeChanges = true;
 					});
 
 					// If a cell is always flagged, flag it
@@ -995,7 +1083,7 @@
 				let madeChanges = false;
 				if (boardInfo.numFlags === boardInfo.numMines) {
 					allCells.filter(c => c.unknown).forEach(c => {
-						if (handleLeftClick(c.row, c.col)) madeChanges = true;
+						if (c.unknown && handleLeftClick(c.row, c.col)) madeChanges = true;
 					});
 				}
 				return madeChanges;
@@ -1018,7 +1106,7 @@
 								if (handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
 							}
 							for (const cellToOpen of ncell.neighbors.filter(n => n.unknown && !cell.neighbors.includes(n))) {
-								if (handleLeftClick(cellToOpen.row, cellToOpen.col)) madeChanges = true;
+								if (cellToOpen.unknown && handleLeftClick(cellToOpen.row, cellToOpen.col)) madeChanges = true;
 							}
 						}
 					}
@@ -1263,8 +1351,35 @@
 				renderBoard(true);
 			}
 
+			function cellToJQueryElement (cell) {
+				return $('.square[data-row=' + cell.row + '][data-col=' + cell.col + ']');
+			}
+
 			function cellToCoordinates (cell) {
 				return '(' + cell.row + ', ' + cell.col + ')';
+			}
+
+			// When you hold left click on an uncompleted hint, all the unknown cells around it "reveal" for a moment
+			function previewNeighbors (cell) {
+				const unknownNeighbors = cell.neighbors.filter(n => n.unknown);
+
+				// Render previewed neighbor unknown cells
+				unknownNeighbors.forEach(n => {
+					n.previewing = true;
+					n.markedForRendering = true;
+				});
+				renderBoard();
+
+				// Set mouseup and mouseout to unpreview neighbors
+				cellToJQueryElement(cell).mouseup(unpreviewNeighbors).mouseout(unpreviewNeighbors);
+				
+				function unpreviewNeighbors () {
+					unknownNeighbors.forEach(n => {
+						n.markedForRendering = true;
+						n.previewing = false;
+					});
+					renderBoard();
+				}
 			}
 
 
@@ -1287,6 +1402,7 @@
 			createBoard();
 			savestates.save();
 			renderBoard(true);
+			timer.render();
 		</script>
 
 	</body>
