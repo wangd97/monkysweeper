@@ -238,7 +238,7 @@
 				});
 
 				// Check if this flag previously an error
-				if (cell.mine) boardInfo.numFlagErrors--;
+				if (!cell.mine) boardInfo.numFlagErrors--;
 
 				boardInfo.numFlags--;
 				return true;
@@ -368,11 +368,23 @@
 				// // 	cols: 5,
 				// // 	numMines: 5,
 				// allCells.forEach(c => removeMine(c));
-				// putMine(board[0][0]);
-				// putMine(board[1][1]);
-				// putMine(board[1][2]);
-				// putMine(board[1][3]);
+				// putMine(board[0][2]);
+				// putMine(board[0][3]);
 				// putMine(board[0][4]);
+				// putMine(board[0][5]);
+				// putMine(board[0][6]);
+				// putMine(board[0][7]);
+				// putMine(board[0][8]);
+				// putMine(board[0][9]);
+				// putMine(board[0][10]);
+				// putMine(board[0][11]);
+				// putMine(board[0][12]);
+				// putMine(board[0][13]);
+				// putMine(board[0][14]);
+				// putMine(board[0][15]);
+				// putMine(board[0][16]);
+				// putMine(board[0][17]);
+				// putMine(board[1][15]);
 			}
 
 			// Shuffle an array in place
@@ -660,9 +672,9 @@
 			$(document).keydown(function(e) {
 				// Q: Deduce
 				if (e.which === 81) {
-					boardInfo.numHintsUsed++;
 					if (boardInfo.numFlagErrors === 0) {
 						deduce();
+						boardInfo.numHintsUsed++;
 						savestates.save();
 						renderBoard(true);
 					}
@@ -677,6 +689,7 @@
 				if (e.which === 82) {
 					createBoard();
 					timer.reset();
+					savestates.reset();
 					savestates.save();
 					renderBoard(true);
 				}
@@ -696,7 +709,11 @@
 			let savestates = {
 				states: [],
 				index: -1,
-				save: function() {
+				reset: function() {
+					this.states = [];
+					this.index = -1;
+				},
+				save: function () {
 					this.index++;
 					this.states[this.index] = {
 						boardInfo: structuredClone(boardInfo),
@@ -704,7 +721,7 @@
 					};
 					this.states.length = this.index + 1;
 				},
-				undo: function() {
+				undo: function () {
 					if (this.index <= 0) return;
 					this.index--;
 					const oldBoardInfo = boardInfo;
@@ -712,10 +729,11 @@
 						boardInfo: structuredClone(this.states[this.index].boardInfo),
 						board: structuredClone(this.states[this.index].board)
 					});
+					if (!boardInfo.isGameStarted) timer.reset();
 					boardInfo.numDeaths = oldBoardInfo.numDeaths;
 					boardInfo.numHintsUsed = oldBoardInfo.numHintsUsed;
 				},
-				redo: function() {
+				redo: function () {
 					if (this.index + 1 >= this.states.length) return;
 					this.index++;
 					createBoard({
