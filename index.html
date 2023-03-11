@@ -232,6 +232,14 @@
 			// cellIntervals = Array(boardInfo.rows).fill().map(() => Array(boardInfo.cols).fill());
 		}
 
+		function isHint (cell) {
+			return cell.revealed && cell.neighborMines > 0;
+		}
+
+		function isIncompleteHint (cell) {
+			 return isHint(cell) && cell.neighborMines > cell.neighborFlags;
+		}
+
 		function flagCell (cell) {
 			if (!cell.unknown) return false;
 
@@ -470,7 +478,7 @@
 
 				// Check for game over
 				if (cell.mine) {
-					lose(cell);
+					handleLose(cell);
 					return true;
 				}
 
@@ -485,8 +493,8 @@
 				}
 
 				// Check for victory
-				if (checkVictory()) {
-					victory();
+				if (boardInfo.numUnknownSafes === 0) {
+					handleWin();
 				}
 
 				return true;
@@ -520,43 +528,45 @@
 			return true;
 		}
 
-		// Handle lose
-		function lose (cell) {
-			
-			boardInfo.isGameOver = true;
-			boardInfo.lost = true;
-			gameStats.numDeaths++;
-			
-			revealCell(cell);
-			cell.exploded = true;
-
-			// Game over message
-			audio.play();
-			console.log('Game over!');
-		}
-
-		// Check if all non-mine squares are revealed
-		// Can also add an option to check if enough flags have been placed down
-		function checkVictory () {
-			return allCells.filter(c => c.revealed).length === boardInfo.rows * boardInfo.cols - boardInfo.numMines;
-		}
-
-		// Handle victory
-		function victory () {
-
+		function handleWin () {
 			// Show all the mines as flags
 			for (const cell of allCells) {
 				if (cell.mine && !cell.flagged) handleRightClick(cell.row, cell.col);
 			}
-
-			// Update board info
 			boardInfo.isGameOver = true;
 			boardInfo.won = true;
+		}
 
-			// Display victory
-			if (boardInfo.suppressWin) return;
+		// Handle lose
+		function handleLose (cell) {
+			cell.exploded = true;
+			boardInfo.isGameOver = true;
+			boardInfo.lost = true;
+			gameStats.numDeaths++;
+		}
 
-			console.log('\nCongratulations, you won!\n');
+		function renderLose () {
+
+			// Game over message
+			audio.play();
+			console.log('\nGame over!');
+
+			// Red flashes
+			animateFlash(2, 'rgb(255, 0, 0)');
+		}
+
+		function renderWin () {
+
+			// Flawless victory: yellow flashes
+			if (boardInfo.won && gameStats.numDeaths === 0 && gameStats.numHintsUsed === 0) {
+				animateFlash(3, 'rgb(255, 223, 0)');
+			}
+			// Cheated victory: white flashes
+			else if (boardInfo.won) {
+				animateFlash(2, 'rgb(255, 255, 255)');
+			}
+
+			console.log('\nCongratulations, you won!');
 
 			console.log('Time: ' + timer.format(timer.elapsedTime));
 			console.log('Total clicks: ' + (gameStats.numLeftClicks + gameStats.numRightClicks));
@@ -591,18 +601,8 @@
 			// Display number of hints used
 			gameStats.numHintsUsed > 0 ? $('#hints').html('Hints: ' + gameStats.numHintsUsed) : $('#hints').empty();
 
-			// If lost, render siren effect
-			if (boardInfo.lost) {
-				animateFlash(2, 'rgb(255, 0, 0)');
-			}
-			// Flawless victory
-			if (boardInfo.won && gameStats.numDeaths === 0 && gameStats.numHintsUsed === 0) {
-				animateFlash(3, 'rgb(255, 223, 0)');
-			}
-			// Cheated victory
-			else if (boardInfo.won) {
-				animateFlash(2, 'rgb(255, 255, 255)');
-			}
+			if (boardInfo.won) renderWin();
+			if (boardInfo.lost) renderLose();
 		}
 
 		// Create a fully unknown board with event listeners
@@ -631,7 +631,7 @@
 
 				$(square).mousedown((e) => {
 					if (e.which === LEFT_CLICK) {
-						gameStats.numLeftClicks++;
+						if (!boardInfo.isGameOver) gameStats.numLeftClicks++;
 						if (handleLeftClick(row, col)) {
 							gameStats.numSuccessfulLeftClicks++;
 							savestates.save();
@@ -639,7 +639,7 @@
 						}
 					}
 					if (e.which === RIGHT_CLICK) {
-						gameStats.numRightClicks++;
+						if (!boardInfo.isGameOver) gameStats.numRightClicks++;
 						if (handleRightClick(row, col)) {
 							gameStats.numSuccessfulRightClicks++;
 							savestates.save();
