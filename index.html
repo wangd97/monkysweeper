@@ -240,6 +240,10 @@
 			 return isHint(cell) && cell.neighborMines > cell.neighborFlags;
 		}
 
+		function numFlagsNeeded (cell) {
+			return Math.max(0, cell.neighborMines - cell.neighborFlags);
+		}
+
 		function flagCell (cell) {
 			if (!cell.unknown) return false;
 
@@ -1107,7 +1111,7 @@
 		function doCleanUp () {
 			let madeChanges = false;
 			if (boardInfo.numFlags === boardInfo.numMines) {
-				allCells.filter(c => c.unknown).forEach(c => {
+				allCells.forEach(c => {
 					if (c.unknown && handleLeftClick(c.row, c.col)) madeChanges = true;
 				});
 			}
@@ -1117,24 +1121,41 @@
 		// Find all hints that, when completed, automatically complete another hint
 		function doAutoComplete () {
 			let madeChanges = false;
-			// For each hint:
-			for (const cell of hintCells) {
-				// For each uncompleted neighbor hint
-				for (const ncell of cell.neighbors) {
-					// ncell must be a hint
-					if (!(ncell.revealed && ncell.neighborMines - ncell.neighborFlags > 0)) continue;
-					// ncell must have equal or lesser effective value (hint - flags) compared to cell
-					if (ncell.neighborMines - ncell.neighborFlags > cell.neighborMines - cell.neighborFlags) continue;
-					// Calculate if completing cell autocompletes ncell
-					// If (cell's unknown neighbors which are not neighboring ncell === cell effective hint - ncell effective hint)
-					// then cell autocompletes ncell
-					if (cell.neighbors.filter(n => n.unknown && !ncell.neighbors.includes(n)).length === (cell.neighborMines - cell.neighborFlags) - (ncell.neighborMines - ncell.neighborFlags)) {
-						for (const cellToFlag of cell.neighbors.filter(n => n.unknown && !ncell.neighbors.includes(n))) {
-							if (handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
-						}
-						for (const cellToOpen of ncell.neighbors.filter(n => n.unknown && !cell.neighbors.includes(n))) {
-							if (cellToOpen.unknown && handleLeftClick(cellToOpen.row, cellToOpen.col)) madeChanges = true;
-						}
+			
+			for (const mainCell of hintCells) {
+				for (const subCell of mainCell.neighbors) {
+
+					// subCell must also be an incomplete hint
+					if (!isIncompleteHint(subCell)) continue;
+
+					// mainCell must have greater or equal flags needed, in order to autocomplete subCell
+					if (!(numFlagsNeeded(mainCell) >= numFlagsNeeded(subCell))) continue;
+
+					// mainCell's wing is unknown cells that touch mainCell, but do not touch subCell
+					mainCellWing = mainCell.neighbors.filter(n => n.unknown && !subCell.neighbors.includes(n));
+					
+					// Calculate number of flags that must touch mainCell, but must not touch subCell
+					numFlagsForMainCellWing = numFlagsNeeded(mainCell) - numFlagsNeeded(subCell);
+
+					// Check if mainCell's wing has to be filled with flags
+					if (!(numFlagsForMainCellWing === mainCellWing.length)) continue;
+
+					// Now we have an autocomplete situation:
+					// mainCell's wing has only enough room for mainCell's own flags
+					// This means that the rest of mainCell's flags must be shared with subCell
+					// The shared flags will be enough to complete subCell
+					// Therefore, subCell's wing contains no flags, and can be revealed
+
+					// subCell's wing is the unknown cells that touch subCell, but do not touch mainCell
+					subCellWing = subCell.neighbors.filter(n => n.unknown && !mainCell.neighbors.includes(n));
+
+					// Flag all of mainCell's wing
+					for (const cellToFlag of mainCellWing) {
+						if (handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
+					}
+					// Reveal all of subCell's wing
+					for (const cellToOpen of subCellWing) {
+						if (cellToOpen.unknown && handleLeftClick(cellToOpen.row, cellToOpen.col)) madeChanges = true;
 					}
 				}
 			}
