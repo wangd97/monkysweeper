@@ -232,8 +232,45 @@
 			// cellIntervals = Array(boardInfo.rows).fill().map(() => Array(boardInfo.cols).fill());
 		}
 
+		function isCovered (cell) {
+			return !cell.revealed;
+		}
+
+		function isUnknown (cell) {
+			return cell.unknown;
+		}
+
+		function isRevealed (cell) {
+			return cell.revealed;
+		}
+
+		function isFlagged (cell) {
+			return cell.flagged;
+		}
+
+		function isBlank (cell) {
+			return cell.neighborMines === 0;
+		}
+
 		function isHint (cell) {
-			return cell.revealed && cell.neighborMines > 0;
+			return cell.revealed && cell.neighborMines > 0 && !cell.mine;
+		}
+
+		function isMine (cell) {
+			return cell.mine;
+		}
+
+		function isSafe (cell) {
+			return !cell.mine;
+		}
+
+		function hintNumber (cell) {
+			if (!isHint(cell)) throw new Error(cellToCoordinates(cell) + ' is not a hint');
+			return cell.neighborMines;
+		}
+
+		function isCompleteHint (cell) {
+			return isHint(cell) && cell.neighborMines === cell.neighborFlags;
 		}
 
 		function isIncompleteHint (cell) {
@@ -319,21 +356,24 @@
 		}
 
 		function resetRngSeed (seed) {
-			if (seed === undefined) seed = Math.floor(Math.random() * 1000000000);
+			if (seed === undefined) seed = Math.random();
 			Math.seedrandom(seed);
 			return seed;
 		}
 
 		function startGame (clickedRow, clickedCol) {
 			
-			const seed = resetRngSeed();
+			const seed = resetRngSeed(); // Debugging: put seed as parameter and refresh page
 			console.log('Seed: ' + seed);
 			console.log('(' + clickedRow + ', ' + clickedCol + ')');
 
 			if (forceDeducible) {
+				let retry = -1;
 				while (true) {
+					retry++;
 					if (initMineLocations(clickedRow, clickedCol)) break;
 				}
+				//console.log({retry});
 			}
 			else {
 				initRandomMineLocations(clickedRow, clickedCol);
@@ -445,17 +485,17 @@
 			const cell = board[row][col];
 
 			// If cell is a revealed hint
-			if (cell.revealed && cell.neighborMines > 0 && !cell.mine) {
+			if (cell.revealed && isHint(cell) && !cell.mine) {
 
 				// If flags !== mines, then preview the unknown neighbors
-				if (cell.neighborFlags !== cell.neighborMines) {
+				if (!isCompleteHint(cell)) {
 					previewNeighbors(cell);
 				}
 
 				// If flags === mines, then reveal unknown neighbors, starting with mines
 				// If a mine is hit, then a game over is triggered, and nothing else opens
 				let madeChanges = false;
-				if (cell.neighborFlags === cell.neighborMines) {
+				if (isCompleteHint(cell)) {
 					// Reveal neighbor mines
 					cell.neighbors.filter(n => n.mine).forEach(n => {
 						if (n.unknown && handleLeftClick(n.row, n.col)) madeChanges = true;
@@ -490,7 +530,7 @@
 				cell.neighbors.forEach(n => n.markedForDeduction = true);
 
 				// If the cell has no neighboring mines, reveal its neighbors
-				if (cell.neighborMines === 0) {
+				if (isBlank(cell)) {
 					cell.neighbors.forEach(n => {
 						if (n.unknown) handleLeftClick(n.row, n.col);
 					});
@@ -683,9 +723,9 @@
 						$cell.addClass('flagged');
 
 				// Render hint number of this square
-				if (cell.revealed && !cell.mine && cell.neighborMines > 0) {
-					$cell.html(cell.neighborMines);
-					$cell.css('color', 'var(--color' + cell.neighborMines + ')');
+				if (isHint(cell)) {
+					$cell.html(hintNumber(cell));
+					$cell.css('color', 'var(--color' + hintNumber(cell) + ')');
 				}
 				else {
 					$cell.empty();
@@ -791,7 +831,7 @@
 			if (boardInfo.numFlagErrors > 0) return false;
 			
 			// hintCells: every cell with a number, that is not completed with flags
-			hintCells = allCells.filter(c => c.revealed && c.neighborFlags < c.neighborMines);
+			hintCells = allCells.filter(isIncompleteHint);
 
 			// Deduce flags
 			if (doEasyDeduction()) {
@@ -817,7 +857,7 @@
 			if (boardInfo.isGameOver) return false;
 			
 			// hintCells: every cell with a number, that is not completed with flags
-			hintCells = allCells.filter(c => c.revealed && c.neighborFlags < c.neighborMines);
+			hintCells = allCells.filter(isIncompleteHint);
 
 			let madeChanges = false;
 
@@ -953,7 +993,7 @@
 			if (hintCells.find(c => c.overflagged)) return;
 
 			// Base case: if all hints satisfied
-			if (cluster.hintCells.every(c => c.neighborFlags === c.neighborMines)) {
+			if (cluster.hintCells.every(isCompleteHint)) {
 
 				// If used more flags than are available, this configuration fails
 				if (boardInfo.numFlags > boardInfo.numMines) return;
@@ -977,8 +1017,8 @@
 			// General case: make guesses
 
 			// Find a hint cell that is incomplete
-			const cell = cluster.hintCells.find(c => c.neighborFlags < c.neighborMines);
-			const flagsNeeded = cell.neighborMines - cell.neighborFlags;
+			const cell = cluster.hintCells.find(isIncompleteHint);
+			const flagsNeeded = hintNumber(cell) - cell.neighborFlags;
 
 			// Find every combination of flags to complete this hint
 			const flagCombinations = getPowerSet(cell.neighbors.filter(n => n.unknown), flagsNeeded, flagsNeeded);
@@ -1080,17 +1120,15 @@
 			return removeSubsetClusters(clusters);
 		}
 
-		// Put obvious flags (where a number N only has N unknown cells around it)
+		// Put obvious flags (where a hint N only has N unknown cells around it)
 		// If changes are made: return true; else return false
 		function doEasyFlags () {
 			let madeChanges = false;
 			for (const cell of hintCells) {
-				// Find all unrevealed neighbor cells
-				const unrevealedNeighborCells = cell.neighbors.filter(n => !n.revealed);
-				// If hint === # of unknown neighbor cells
-				if (cell.neighborMines === unrevealedNeighborCells.length) {
-					// Flag all unknown neighbor cells
-					unrevealedNeighborCells.filter(n => n.unknown).forEach(n => {
+				const unknownNeighborCells = cell.neighbors.filter(isUnknown);
+				const numFlaggableCells = unknownNeighborCells.length;
+				if (numFlagsNeeded(cell) === numFlaggableCells) {
+					unknownNeighborCells.forEach(n => {
 						if (handleRightClick(n.row, n.col)) madeChanges = true;
 					});
 				}
@@ -1101,7 +1139,7 @@
 		// Click all numbers that have enough flags around it
 		function doEasyOpens () {
 			let madeChanges = false;
-			allCells.filter(c => c.revealed && c.neighborMines === c.neighborFlags).forEach(c => {
+			allCells.filter(isCompleteHint).forEach(c => {
 				if (handleLeftClick(c.row, c.col)) madeChanges = true;
 			});
 			return madeChanges;
@@ -1109,12 +1147,11 @@
 
 		// If finished flagging the whole board, reveal every unknown cell
 		function doCleanUp () {
+			if (boardInfo.numFlags !== boardInfo.numMines) return false;
 			let madeChanges = false;
-			if (boardInfo.numFlags === boardInfo.numMines) {
-				allCells.forEach(c => {
-					if (c.unknown && handleLeftClick(c.row, c.col)) madeChanges = true;
-				});
-			}
+			allCells.forEach(c => {
+				if (isUnknown(c) && handleLeftClick(c.row, c.col)) madeChanges = true;
+			});
 			return madeChanges;
 		}
 
@@ -1131,31 +1168,33 @@
 					// mainCell must have greater or equal flags needed, in order to autocomplete subCell
 					if (!(numFlagsNeeded(mainCell) >= numFlagsNeeded(subCell))) continue;
 
-					// mainCell's wing is unknown cells that touch mainCell, but do not touch subCell
-					mainCellWing = mainCell.neighbors.filter(n => n.unknown && !subCell.neighbors.includes(n));
+					// mainCell's wing is the unknown cells that touch mainCell, but do not touch subCell
+					mainCellWing = mainCell.neighbors.filter(n => isUnknown(n) && !subCell.neighbors.includes(n));
 					
 					// Calculate number of flags that must touch mainCell, but must not touch subCell
-					numFlagsForMainCellWing = numFlagsNeeded(mainCell) - numFlagsNeeded(subCell);
+					numFlagsThatMustGoInMainCellWing = numFlagsNeeded(mainCell) - numFlagsNeeded(subCell);
 
 					// Check if mainCell's wing has to be filled with flags
-					if (!(numFlagsForMainCellWing === mainCellWing.length)) continue;
+					if (!(numFlagsThatMustGoInMainCellWing === mainCellWing.length)) continue;
 
 					// Now we have an autocomplete situation:
 					// mainCell's wing has only enough room for mainCell's own flags
 					// This means that the rest of mainCell's flags must be shared with subCell
 					// The shared flags will be enough to complete subCell
 					// Therefore, subCell's wing contains no flags, and can be revealed
+					// And mainCell's wing can all be flagged
 
 					// subCell's wing is the unknown cells that touch subCell, but do not touch mainCell
-					subCellWing = subCell.neighbors.filter(n => n.unknown && !mainCell.neighbors.includes(n));
+					subCellWing = subCell.neighbors.filter(n => isUnknown(n) && !mainCell.neighbors.includes(n));
 
 					// Flag all of mainCell's wing
 					for (const cellToFlag of mainCellWing) {
 						if (handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
 					}
+
 					// Reveal all of subCell's wing
-					for (const cellToOpen of subCellWing) {
-						if (cellToOpen.unknown && handleLeftClick(cellToOpen.row, cellToOpen.col)) madeChanges = true;
+					for (const cellToReveal of subCellWing) {
+						if (isUnknown(cellToReveal) && handleLeftClick(cellToReveal.row, cellToReveal.col)) madeChanges = true;
 					}
 				}
 			}
@@ -1174,7 +1213,7 @@
 			// If there are not enough mines to bring to this hint, cannot choose fill
 			const availableMinesToBring = unknownFarCells.filter(c => c.mine);
 			const cellsToAddMine = hintCell.neighbors.filter(n => n.unknown && !n.mine);
-			const cellsToFlag = hintCell.neighbors.filter(n => n.unknown);
+			const cellsToFlag = hintCell.neighbors.filter(isUnknown);
 			if (availableMinesToBring.length < cellsToAddMine.length) return false;
 
 			// // Don't pick the same choice N+1 times in a row
@@ -1283,7 +1322,7 @@
 				for (originalMine of undeducibleMines) {
 				
 					// Find a new location for this mine
-					let newMine = getRandomElement(allCells.filter(c => c.unknown && !c.mine && c.canBeMine));
+					let newMine = getRandomElement(allCells.filter(c => isUnknown(c) && isMine(c) && c.canBeMine));
 
 					// If no possible locations to move the mine to, this function fails entirely
 					if (!newMine) return false;
@@ -1312,14 +1351,14 @@
 				for (newMine of originalMine.neighbors.filter(n => !n.mine && !n.flagged)) {
 					const neighbors2 = newMine.neighbors;
 
-					// Remember what hints were
+					// Remember what hints/blanks were
 					const originalHints = [...neighbors1, ...neighbors2].filter(n => n !== originalMine && n !== newMine && !n.mine).map(n => n.neighborMines);
 
 					// Move mine to new location
 					removeMine(originalMine);
 					putMine(newMine);
 
-					// Check if hints are still the same
+					// Check if hints/blanks are still the same
 					const newHints = [...neighbors1, ...neighbors2].filter(n => n !== originalMine && n !== newMine && !n.mine).map(n => n.neighborMines);
 					const hintsIdentical = newHints.every((hint, index) => hint === originalHints[index]);
 
@@ -1357,26 +1396,16 @@
 			// Returns array of cells in the safe cluster, and array of mines that touch this safe cluster
 			function expandSafeCluster (cell = allCells.find(c => !c.canBeMine), safeCluster = [], visibleMines = []) {
 				
-				// If this cell is safe, we may want it in the cluster
-				if (!cell.mine) {
+				// This cell must not already be included
+				if (safeCluster.includes(cell) || visibleMines.includes(cell)) return [safeCluster, visibleMines];
 
-					// If this cell is already in the cluster, do nothing
-					if (safeCluster.includes(cell)) return [safeCluster, visibleMines];
-
-					// Add it to the cluster
+				// If this cell is safe, add it to the cluster, and add all of its neighbors
+				if (isSafe(cell)) {
 					safeCluster.push(cell);
-
-					// Check if its neighbors should be added
-					cell.neighbors.forEach(n => {expandSafeCluster(n, safeCluster, visibleMines)});
+					cell.neighbors.forEach(n => expandSafeCluster(n, safeCluster, visibleMines));
 				}
 
-				// This is a mine that touches the safe cluster
-				else {
-
-					// If this cell is already in neighbors, do nothing
-					if (visibleMines.includes(cell)) return [safeCluster, visibleMines];
-
-					// Add it to neighbors
+				else if (isMine(cell)) {
 					visibleMines.push(cell);
 				}
 
@@ -1384,16 +1413,14 @@
 			}
 		}
 
-		function cellToJQueryElement (cell) {
-			return $('.square[data-row=' + cell.row + '][data-col=' + cell.col + ']');
-		}
-
-		// When you hold left click on an uncompleted hint, all the unknown cells around it "reveal" for a moment
+		// When you hold left click on an uncompleted hint, all the unknown cells around it "reveal" (preview) for a moment
 		function previewNeighbors (cell) {
-			const unknownNeighbors = cell.neighbors.filter(n => n.unknown);
+			const unknownNeighbors = cell.neighbors.filter(isUnknown);
+			if (unknownNeighbors.length === 0) return;
+
 			$cell = cellToJQueryElement(cell);
 
-			// Render previewed neighbor unknown cells
+			// Render the previewed cells
 			unknownNeighbors.forEach(n => {
 				n.previewing = true;
 				n.markedForRendering = true;
@@ -1411,6 +1438,21 @@
 				});
 				renderBoard();
 			}
+		}
+
+
+
+
+
+
+
+
+
+
+		
+
+		function cellToJQueryElement (cell) {
+			return $('.square[data-row=' + cell.row + '][data-col=' + cell.col + ']');
 		}
 
 
