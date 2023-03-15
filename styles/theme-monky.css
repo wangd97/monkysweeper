@@ -1,0 +1,20 @@
+.theme-monky {
+    /* variables here */
+    --example-variable: 69;
+}
+.theme-monky body {
+    background-image: url(../images/backgrounds/monkey-background.png);
+    cursor: url('../images/cursors/banana-covered-cursor.png') 4 1, default;
+}
+.theme-monky #container {
+    cursor: url('../images/cursors/banana-peeled-cursor.png') 4 1, default;
+}
+.theme-monky #info-container {
+    font-family: 'Nunito';
+    font-weight: 400;
+    color: white;
+}
+.theme-monky .square {
+    font-family: 'Nunito';
+    font-weight: 400;
+}

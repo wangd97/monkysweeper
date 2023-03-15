@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="theme-classic">
 <head>
 	<title>Monkysweeper</title>
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -7,7 +7,10 @@
 	
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500&family=Play&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Nunito&family=Roboto+Mono&family=Play&family=Fragment+Mono&family=Aldrich&family=Fira+Code:wght@400;500;600&family=Oxanium:wght@400;500;600&display=swap" rel="stylesheet">
+
+
+
 
 	<script src="lib/jquery.js"></script>
 
@@ -15,7 +18,7 @@
 	<script src="lib/seedrandom.js"></script>
 	<script>Math.seedrandom(rngSeed)</script>
 
-	<style id="theme-style"></style>
+	<style id="all-themes-style"></style>
 </head>
 
 <body>
@@ -46,45 +49,45 @@
 
 
 		const timer = {
-			state: 'stopped', // stopped, running, paused
+			state: `stopped`, // stopped, running, paused
 			startTime: undefined,
 			pauseTime: undefined,
 			elapsedTime: 0,
 			interval: undefined,
 			precision: 100, // ms
 			render: function () {
-				$('#timer').html(timer.format(timer.elapsedTime));
+				$(`#timer`).html(timer.format(timer.elapsedTime));
 			},
 			reset: function () {
-				timer.state = 'stopped';
+				timer.state = `stopped`;
 				timer.elapsedTime = 0;
 				clearInterval(timer.interval);
 				timer.render();
 			},
 			start: function () {
-				timer.state = 'running';
+				timer.state = `running`;
 				timer.startTime = Date.now();
 				timer.interval = setInterval(timer.updateWhileNotGameOver, timer.precision);
 			},
 			pause: function () {
-				if (timer.state === 'running') {
+				if (timer.state === `running`) {
 					timer.pauseTime = Date.now();
-					timer.state = 'paused';
+					timer.state = `paused`;
 				}
 			},
 			resume: function () {
-				if (timer.state === 'paused') {
+				if (timer.state === `paused`) {
 					timer.startTime += Date.now() - timer.pauseTime;
-					timer.state = 'running';
+					timer.state = `running`;
 				}
 			},
 			stop: function () {
-				timer.state = 'stopped';
+				timer.state = `stopped`;
 				clearInterval(timer.interval);
 				timer.update();
 			},
 			update: function () {
-				if (timer.state === 'running') {
+				if (timer.state === `running`) {
 					timer.elapsedTime = Date.now() - timer.startTime;
 					timer.render();
 				}
@@ -102,7 +105,7 @@
 				// Format the time in the format mm:ss
 				const minutes = Math.floor(time / 60000);
 				const seconds = Math.floor((time % 60000) / 1000);
-				return `${minutes.toString()}:${seconds.toString().padStart(2, '0')}`;
+				return `${minutes.toString()}:${seconds.toString().padStart(2, `0`)}`;
 			}
 		}
 		
@@ -124,7 +127,7 @@
 			gameStats.lastY = e.clientY;
 		});
 
-		var audio = new Audio('audio/Roblox-death-sound.mp3');
+		var audio = new Audio(`audio/Roblox-death-sound.mp3`);
 		audio.load();
 
 		let boardInfo;
@@ -222,7 +225,7 @@
 			// Init allCells array as a flattened (1D) version of board (2D)
 			allCells = board.flat();
 
-			// Init 'neighbors' property of each cell with references to each neighboring cell
+			// Init the neighbors property of each cell with references to each neighboring cell
 			allCells.forEach(c => {
 				c.neighbors = allCells.filter(n => Math.abs(c.row - n.row) <= 1 && Math.abs(c.col - n.col) <= 1 && n !== c);
 			})
@@ -268,7 +271,7 @@
 		}
 
 		function hintNumber (cell) {
-			if (cell.mine) throw new Error(cellToCoordinates(cell) + ' is a mine, and does not have a hint number');
+			if (cell.mine) throw new Error(`${cellToCoordinates(cell)} is a mine, and does not have a hint number`);
 			return cell.neighborMines;
 		}
 
@@ -367,8 +370,8 @@
 		function startGame (clickedRow, clickedCol) {
 			
 			const seed = resetRngSeed(); // Debugging: put seed as parameter and refresh page
-			console.log('Seed: ' + seed);
-			console.log('(' + clickedRow + ', ' + clickedCol + ')');
+			console.log(`Seed: ${seed}`);
+			console.log(`(${clickedRow}, ${clickedCol})`);
 
 			if (forceDeducible) {
 				initDeducibleMineLocations(clickedRow, clickedCol);
@@ -401,7 +404,7 @@
 			} while (!boardInfo.won);
 
 			// Remember mine locations of deducible board
-			// Careful: mineCells contains discarded cell objects that are not part of the new 'board' variable
+			// Careful: mineCells contains discarded cell objects that are not part of the new board variable
 			const mineCells = allCells.filter(c => c.mine);
 
 			// Reset board
@@ -411,7 +414,7 @@
 			[clickedCell, ...clickedCell.neighbors].forEach(c => c.canBeMine = false);
 
 			// Place old mines on the new board
-			// Careful: mineCells contains discarded cell objects that are not part of the new 'board' variable
+			// Careful: mineCells contains discarded cell objects that are not part of the new board variable
 			mineCells.forEach(c => putMine(board[c.row][c.col]));
 		}
 
@@ -587,37 +590,32 @@
 
 			// Game over message
 			audio.play();
-			console.log('\nGame over!');
+			console.log(`\nGame over!`);
 
 			// Exploded effect
-			animateFlash(2, 'lose');
+			animateFlash(2, `lose`);
 		}
 
 		function renderWin () {
 
-			// // Flawless victory: yellow flashes
-			// if (boardInfo.won && gameStats.numDeaths === 0 && gameStats.numHintsUsed === 0) {
-			// 	animateFlash(3, 'flawlessvictory');
-			// }
-
 			// Flashing effect
 			if (boardInfo.won) {
-				animateFlash(2, 'win');
+				animateFlash(2, `win`);
 			}
 
-			console.log('\nCongratulations, you won!');
+			console.log(`\nCongratulations, you won!`);
 
-			console.log('Time: ' + timer.format(timer.elapsedTime));
-			console.log('Total clicks: ' + (gameStats.numLeftClicks + gameStats.numRightClicks));
-			console.log('Clicks per second: ' + ((gameStats.numLeftClicks + gameStats.numRightClicks) / (timer.elapsedTime / 1000)).toFixed(1));
-			console.log('Total mouse distance: ' + Math.floor(gameStats.mouseDistanceTraveled));
-			console.log('Successful left clicks: ' + gameStats.numSuccessfulLeftClicks + '/' + gameStats.numLeftClicks + ' (' + Math.round(gameStats.numSuccessfulLeftClicks / gameStats.numLeftClicks * 100) + '%)');
-			console.log('Successful right clicks: ' + gameStats.numSuccessfulRightClicks + '/' + gameStats.numRightClicks + ' (' + Math.round(gameStats.numSuccessfulRightClicks / gameStats.numRightClicks * 100) + '%)');
-			console.log('Deaths: ' + gameStats.numDeaths);
-			console.log('Hints used: ' + gameStats.numHintsUsed);
+			console.log(`Time: ${timer.format(timer.elapsedTime)}`);
+			console.log(`Total clicks: ${(gameStats.numLeftClicks + gameStats.numRightClicks)}`);
+			console.log(`Clicks per second: ${((gameStats.numLeftClicks + gameStats.numRightClicks) / (timer.elapsedTime / 1000)).toFixed(1)}`);
+			console.log(`Total mouse distance: ${Math.floor(gameStats.mouseDistanceTraveled)}`);
+			console.log(`Successful left clicks: ${gameStats.numSuccessfulLeftClicks}/${gameStats.numLeftClicks} (${Math.round(gameStats.numSuccessfulLeftClicks / gameStats.numLeftClicks * 100)}%)`);
+			console.log(`Successful right clicks: ${gameStats.numSuccessfulRightClicks}/${gameStats.numRightClicks} (${Math.round(gameStats.numSuccessfulRightClicks / gameStats.numRightClicks * 100)}%)`);
+			console.log(`Deaths: ${gameStats.numDeaths}`);
+			console.log(`Hints used: ${gameStats.numHintsUsed}`);
 
 			// TODO: uncomment the line below when Dylan FINALLY fixes his stuff smh
-			window.open('https://www.youtube.com/watch?v=ymdhRMiMGK0', 'popup', config='height=375,width=450')
+			window.open(`https://www.youtube.com/watch?v=ymdhRMiMGK0`, `popup`, config=`height=375,width=450`)
 		}
 
 		function renderBoard (renderWholeBoard = false) {
@@ -629,16 +627,16 @@
 			}
 
 			// Display how many flags placed
-			$('#flags').html('Mines: ' + boardInfo.numFlags + '/' + boardInfo.totalMines);
+			$(`#flags`).html(`Mines: ${boardInfo.numFlags}/${boardInfo.totalMines}`);
 
 			// Near the end of the game, display how many safe squares remaining
-			boardInfo.numUnknownSafes < 10 ? $('#safes').html('Safe: ' + boardInfo.numUnknownSafes) : $('#safes').empty();
+			boardInfo.numUnknownSafes < 10 ? $(`#safes`).html(`Safe: ${boardInfo.numUnknownSafes}`) : $(`#safes`).empty();
 
 			// Display number of deaths
-			gameStats.numDeaths > 0 ? $('#deaths').html('Deaths: ' + gameStats.numDeaths) : $('#deaths').empty();
+			gameStats.numDeaths > 0 ? $(`#deaths`).html(`Deaths: ${gameStats.numDeaths}`) : $(`#deaths`).empty();
 
 			// Display number of hints used
-			gameStats.numHintsUsed > 0 ? $('#hints').html('Hints: ' + gameStats.numHintsUsed) : $('#hints').empty();
+			gameStats.numHintsUsed > 0 ? $(`#hints`).html(`Hints: ${gameStats.numHintsUsed}`) : $(`#hints`).empty();
 
 			if (boardInfo.won) renderWin();
 			if (boardInfo.lost) renderLose();
@@ -652,21 +650,21 @@
 			$board.empty();
 
 			// Set CSS for grid based on number of rows and cols
-			$board.css('grid-template-rows', 'repeat(' + boardInfo.rows + ', 1fr)');
-			$board.css('grid-template-columns', 'repeat(' + boardInfo.cols + ', 1fr)');
+			$board.css(`grid-template-rows`, `repeat(${boardInfo.rows}, 1fr)`);
+			$board.css(`grid-template-columns`, `repeat(${boardInfo.cols}, 1fr)`);
 
 			// Add each cell
 			for (const cell of allCells) {
-				$board.append($('<div class="square unknown" data-row="' + cell.row + '" data-col="' + cell.col + '"></div>'));
+				$board.append($(`<div class="square unknown" data-row="${cell.row}" data-col="${cell.col}"></div>`));
 			}
 
 			// Set up event listeners for each square
-			$('.square').each((index, square) => {
+			$(`.square`).each((index, square) => {
 				const LEFT_CLICK = 1;
 				const RIGHT_CLICK = 3;
 
-				const row = parseInt($(square).attr('data-row'));
-				const col = parseInt($(square).attr('data-col'));
+				const row = parseInt($(square).attr(`data-row`));
+				const col = parseInt($(square).attr(`data-col`));
 
 				$(square).mousedown((e) => {
 					if (e.which === LEFT_CLICK) {
@@ -696,30 +694,30 @@
 			for (const cell of cellsToRender) {
 				
 				// Find the div element (square) of this row and col
-				const $cell = $($('[data-row=' + cell.row + '][data-col=' + cell.col + ']'));
+				const $cell = $($(`[data-row=${cell.row}][data-col=${cell.col}]`));
 
 				// Reset classes
-				$cell.attr('class', 'square');
+				$cell.attr(`class`, `square`);
 
 				// Render visual state of this square
 				if (cell.previewing)
-					$cell.addClass('revealed');
+					$cell.addClass(`revealed`);
 				else if (cell.revealed) {
-					$cell.addClass('revealed');
+					$cell.addClass(`revealed`);
 					if (cell.exploded)
-						$cell.addClass('mine');
+						$cell.addClass(`mine`);
 					if (cell.overflagged)
-						$cell.addClass('overflagged');
+						$cell.addClass(`overflagged`);
 				}
 				else if (cell.unknown)
-					$cell.addClass('unknown');
+					$cell.addClass(`unknown`);
 				else if (cell.flagged)
-					$cell.addClass('flagged');
+					$cell.addClass(`flagged`);
 
 				// Render hint number of this square
 				if (isHint(cell)) {
 					$cell.html(hintNumber(cell));
-					$cell.css('color', 'var(--color' + hintNumber(cell) + ')');
+					$cell.css(`color`, `var(--color${hintNumber(cell)})`);
 				}
 				else {
 					$cell.empty();
@@ -734,7 +732,7 @@
 			for (let i = 0; i < numFlashes; i++) setTimeout(flashOnce, 2 * millisecondsBetweenFlashes * i);
 			
 			function flashOnce () {
-				$cells = $('.square').addClass(effectClassName);
+				$cells = $(`.square`).addClass(effectClassName);
 				setTimeout(() => $cells.removeClass(effectClassName), millisecondsBetweenFlashes);
 			}
 		}
@@ -889,7 +887,7 @@
 			return deduceClusters(clusters);
 		}
 
-		// This function deduces the flags and safe cells for the cluster that contains the entire board's hints, and their neighboring unknown cells
+		// This function deduces the flags and safe cells for the cluster that contains all the incomplete hints, and their neighboring unknown cells
 		// This is slow; use this near the end of the game when there are few mines remaining (threshold set in boardInfo)
 		function doGlobalDeduction () {
 			
@@ -922,7 +920,7 @@
 		// Try every way to fill up each cluster with flags
 		// If a cell is unflagged in every configuration of that cluster, then we can open it
 		// If a cell is flagged in every configuration of that cluster, then we can flag it
-		// Attaches a key 'alwaysReachesFlagLimit' (true/false) to each cluster,
+		// Attaches a key (alwaysReachesFlagLimit = true/false) to each cluster,
 		// which is true if solving this cluster always uses the max flags, false otherwise
 		function deduceClusters (clusters) {
 			let madeChanges = false;
@@ -1163,7 +1161,7 @@
 					// mainCell must have greater or equal flags needed, in order to autocomplete subCell
 					if (!(numFlagsNeeded(mainCell) >= numFlagsNeeded(subCell))) continue;
 
-					// mainCell's wing is the unknown cells that touch mainCell, but do not touch subCell
+					// mainCel\l`s wing is the unknown cells that touch mainCell, but do not touch subCell
 					mainCellWing = mainCell.neighbors.filter(n => isUnknown(n) && !subCell.neighbors.includes(n));
 					
 					// Calculate number of flags that must touch mainCell, but must not touch subCell
@@ -1265,7 +1263,7 @@
 		function randomlyFillOrClearHint () {
 
 			for (const hintCell of shuffleArray(hintCells)) {
-				const choices = shuffleArray(['fill', 'clear']);
+				const choices = shuffleArray([`fill`, `clear`]);
 				let choiceWorked = false;
 
 				// Try each choice until success
@@ -1273,10 +1271,10 @@
 					const choice = choices.pop();
 
 					// Attempt to do the action of choice
-					if (choice === 'fill' && tryToFillHint(hintCell)) {
+					if (choice === `fill` && tryToFillHint(hintCell)) {
 						choiceWorked = true;
 					}
-					if (choice === 'clear' && tryToClearHint(hintCell)) {
+					if (choice === `clear` && tryToClearHint(hintCell)) {
 						choiceWorked = true;
 					}
 
@@ -1325,7 +1323,7 @@
 			}
 
 			// Should never reach this line
-			throw new Error('moveUndeducibleMines reached unreachable code');
+			throw new Error(`moveUndeducibleMines reached unreachable code`);
 		}
 
 		// Finds which mines can move to a neighbor spot without affecting any hints; these are undeducible
@@ -1424,7 +1422,7 @@
 			$cell.mouseup(unpreviewNeighbors).mouseout(unpreviewNeighbors);
 			
 			function unpreviewNeighbors () {
-				$cell.off('mouseup').off('mouseout');
+				$cell.off(`mouseup`).off(`mouseout`);
 				unknownNeighbors.forEach(n => {
 					n.markedForRendering = true;
 					n.previewing = false;
@@ -1445,7 +1443,7 @@
 		
 
 		function cellToJQueryElement (cell) {
-			return $('.square[data-row=' + cell.row + '][data-col=' + cell.col + ']');
+			return $(`.square[data-row=${cell.row}][data-col=${cell.col}]`);
 		}
 
 
@@ -1468,7 +1466,7 @@
 
 		// For debugging
 		function cellToCoordinates (cell) {
-			return '(' + cell.row + ', ' + cell.col + ')';
+			return `(${cell.row}, ${cell.col})`;
 		}
 
 
@@ -1489,8 +1487,8 @@
 		function resetGame () {
 			createBoard();
 			createGameStats();
-			savestates.save();
 			savestates.reset();
+			savestates.save();
 			renderBoard(true);
 			timer.reset();
 		}
@@ -1499,33 +1497,29 @@
 		resetGame();
 
 		function initializeAllThemes () {
-			const $style = $('#theme-style');
-			const themeNames = ['classic', 'monky', ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
-			const states = ['revealed', 'unknown', 'flagged', 'overflagged', 'mine'];
+			const themeNames = [`classic`, `monky`, ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
+			const cellStates = [`revealed`, `unknown`, `flagged`, `overflagged`, `mine`];
 
 			for (themeName of themeNames) {
-				$link = $(`<link rel="stylesheet" href="styles/themes/${themeName}.css" class="theme-stylesheet" data-name="${themeName}" disabled>`);
-				$('head').append($link);
+				$(`head`).append(`<link rel="stylesheet" href="styles/theme-${themeName}.css" class="theme-stylesheet">`);
 
 				const rootUrl = `./images/icons/${themeName}`;
-				for (const state of states) {
+				for (const state of cellStates) {
 					const defaultBackground = `url(${rootUrl}/${state}.png)`;
-					$style.append(`
-						.square.${state} { background-image: ${defaultBackground}; }
-						.square.${state}.win { background-image: url(${rootUrl}/${state}-win.png), ${defaultBackground}; }
-						.square.${state}.lose { background-image: url(${rootUrl}/${state}-lose.png), ${defaultBackground}; }
+					$(`#all-themes-style`).append(`
+						.theme-${themeName} .square.${state} { background-image: ${defaultBackground}; }
+						.theme-${themeName} .square.${state}.win { background-image: url(${rootUrl}/${state}-win.png), ${defaultBackground}; }
+						.theme-${themeName} .square.${state}.lose { background-image: url(${rootUrl}/${state}-lose.png), ${defaultBackground}; }
 					`);
 				}
 			}
 		}
 
 		function applyTheme (themeName) {
-			$(`.theme-stylesheet`).prop('disabled', true);
-			$(`.theme-stylesheet[data-name=${themeName}]`).prop('disabled', false);
+			$(`html`).attr(`class`, `theme-${themeName}`);
 		}
 
 		initializeAllThemes();
-		applyTheme('classic');
 
 	</script>
 

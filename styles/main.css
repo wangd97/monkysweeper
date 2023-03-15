@@ -1,7 +1,12 @@
 :root {
+    --cell-font: 'Oxanium';
+    --info-font: 'Fira Code';
     --cell-size: 33px;
-    --board-font-size: 25px;
-    --info-font-size: 30px;
+    --cell-border-size: 1px;
+    --cell-font-size: 26px;
+    --board-background-color: rgb(218, 218, 218);
+    --board-border-size: 5px;
+    --info-font-size: 25px;
     --color1: rgb(0, 0, 255);
     --color2: rgb(0, 128, 0);
     --color3: rgb(255, 0, 0);
@@ -10,6 +15,64 @@
     --color6: rgb(0, 128, 128);
     --color7: rgb(0, 0, 0);
     --color8: rgb(128, 128, 128);
+}
+body {
+    height: 100vh;
+    background-image: url(../images/backgrounds/classic-light.png);
+}
+#container {
+    width: fit-content;
+    background-color: gray;
+    padding: 20px;
+    margin: auto;
+}
+#board {
+    background-color: var(--board-background-color);
+    display: grid;
+    grid-gap: 0;
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10 and IE 11 */
+    user-select: none; /* Standard syntax */
+    border-top: var(--board-border-size) solid rgb(153, 153, 153);
+    border-left: var(--board-border-size) solid rgb(153, 153, 153);
+    border-right: var(--board-border-size) solid white;
+    border-bottom: var(--board-border-size) solid white;
+}
+.square {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    overflow: hidden;
+    margin: 0px;
+    padding: 0px;
+    background-repeat: no-repeat;
+    background-size: cover;
+    font-size: var(--cell-font-size);
+    font-family: var(--cell-font);
+    font-weight: 500;
+}
+.square.revealed {
+    --border-color: rgb(153, 153, 153);
+    border-top: var(--cell-border-size) solid var(--border-color);
+    border-left: var(--cell-border-size) solid var(--border-color);
+}
+.square.unknown, .square.flagged {
+    --border-color: white;
+    border-top: var(--cell-border-size) solid var(--border-color);
+    border-left: var(--cell-border-size) solid var(--border-color);
+}
+#info-container {
+    display: flex;
+    flex-direction: row;
+    color: white;
+    margin-top: 5px;
+    font-size: var(--info-font-size);
+    font-family: var(--info-font);
+    font-weight: 400;
+    color: white;
 }
 .flexbox-left {
     display: flex;
@@ -26,11 +89,4 @@
 }
 #info-container .flexbox-right div {
     margin: 0 2px 0 25px;
-}
-#board {
-    display: grid;
-    grid-gap: 0;
-    -webkit-user-select: none; /* Safari */
-    -ms-user-select: none; /* IE 10 and IE 11 */
-    user-select: none; /* Standard syntax */
 }
