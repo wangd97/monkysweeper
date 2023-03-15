@@ -170,8 +170,6 @@
 					lost: false,
 					numFlagErrors: 0,
 					// for making board deducible
-					suppressWin: false,
-					// lastNPerturbChoices: ['', '', ''],
 					globalDeductionMineThreshold: 15,
 					maxRecursionDepth: 15
 				};
@@ -248,6 +246,10 @@
 			return cell.flagged;
 		}
 
+		function isNotFlagged (cell) {
+			return !cell.flagged;
+		}
+
 		function isBlank (cell) {
 			return cell.neighborMines === 0;
 		}
@@ -265,7 +267,7 @@
 		}
 
 		function hintNumber (cell) {
-			if (!isHint(cell)) throw new Error(cellToCoordinates(cell) + ' is not a hint');
+			if (cell.mine) throw new Error(cellToCoordinates(cell) + ' is a mine, and does not have a hint number');
 			return cell.neighborMines;
 		}
 
@@ -368,12 +370,7 @@
 			console.log('(' + clickedRow + ', ' + clickedCol + ')');
 
 			if (forceDeducible) {
-				let retry = -1;
-				while (true) {
-					retry++;
-					if (initMineLocations(clickedRow, clickedCol)) break;
-				}
-				//console.log({retry});
+				initDeducibleMineLocations(clickedRow, clickedCol);
 			}
 			else {
 				initRandomMineLocations(clickedRow, clickedCol);
@@ -384,41 +381,37 @@
 
 		// Make the board deducible by simulating a playthrough, and making changes if necessary
 		// Returns true if success, else returns false
-		function initMineLocations (clickedRow, clickedCol) {
+		function initDeducibleMineLocations (clickedRow, clickedCol) {
 
 			do {
-				createBoard();
-				boardInfo.isGameStarted = true;
-				boardInfo.suppressWin = true;
-				initRandomMineLocations(clickedRow, clickedCol);
-				moveUndeducibleMines();
-			} while (existsUndeducibleHiddenRegion());
+				// Generate a board without undeducible regions or undeducible mines
+				do {
+					createBoard();
+					boardInfo.isGameStarted = true;
+					initRandomMineLocations(clickedRow, clickedCol);
+					moveUndeducibleMines();
+				} while (existsUndeducibleHiddenRegion());
 
-			// Repeatedly deduce and perturb mines
-			handleLeftClick(clickedRow, clickedCol);
-			while (deduce() || perturb());
+				// Repeatedly deduce and perturb mines to make it deducible from the starting click
+				handleLeftClick(clickedRow, clickedCol);
+				while (deduce() || perturb());
 
-			// If failed to generate deducible board, return false
-			if (!boardInfo.won) {
-				return false;
-			}
+			// If failed to generate deducible board, try again
+			} while (!boardInfo.won);
 
 			// Remember mine locations of deducible board
-			// Careful: mineCells contains discarded cells that are not part of the board variable
+			// Careful: mineCells contains discarded cell objects that are not part of the new 'board' variable
 			const mineCells = allCells.filter(c => c.mine);
 
 			// Reset board
 			createBoard();
 
 			const clickedCell = board[clickedRow][clickedCol];
-			clickedCell.canBeMine = false;
-			clickedCell.neighbors.forEach(n => n.canBeMine = false);
+			[clickedCell, ...clickedCell.neighbors].forEach(c => c.canBeMine = false);
 
-			// Place mines on the board
-			// Careful: mineCells contains discarded cells that are not part of the board variable
+			// Place old mines on the new board
+			// Careful: mineCells contains discarded cell objects that are not part of the new 'board' variable
 			mineCells.forEach(c => putMine(board[c.row][c.col]));
-			
-			return true;
 		}
 
 		// Generate random mine locations
@@ -967,7 +960,9 @@
 				});
 
 				// End this function as soon as any changes are made, to save time
-				if (madeChanges) break;
+				if (madeChanges) {
+					break;
+				}
 			}
 
 			return madeChanges;
@@ -1089,7 +1084,6 @@
 			// Create a cluster out of each hintCell
 			for (cell of hintCells) {
 
-				let isMarkedForDeduction = false;
 				const clusterHintCells = [cell];
 				const clusterUnknownCells = [];
 
@@ -1155,15 +1149,19 @@
 			return madeChanges;
 		}
 
-		// Find all hints that, when completed, automatically complete another hint
+		// Find a hint that, when completed, automatically completes another hint
 		function doAutoComplete () {
 			let madeChanges = false;
-			
-			for (const mainCell of hintCells) {
-				for (const subCell of mainCell.neighbors) {
 
-					// subCell must also be an incomplete hint
-					if (!isIncompleteHint(subCell)) continue;
+			for (const mainCell of hintCells) {
+
+				// Find all hint cells that share an unknown neighbor cell with mainCell
+				const subCells = [];
+				mainCell.neighbors.filter(isUnknown).forEach(unknownNeighbor => {
+					subCells.push(...unknownNeighbor.neighbors.filter(isIncompleteHint))
+				});
+
+				for (const subCell of subCells) {
 
 					// mainCell must have greater or equal flags needed, in order to autocomplete subCell
 					if (!(numFlagsNeeded(mainCell) >= numFlagsNeeded(subCell))) continue;
@@ -1196,9 +1194,12 @@
 					for (const cellToReveal of subCellWing) {
 						if (isUnknown(cellToReveal) && handleLeftClick(cellToReveal.row, cellToReveal.col)) madeChanges = true;
 					}
+
+					if (madeChanges) return true;
 				}
 			}
-			return madeChanges;
+
+			return false;
 		}
 
 		function getRandomElement (array) {
@@ -1215,9 +1216,6 @@
 			const cellsToAddMine = hintCell.neighbors.filter(n => n.unknown && !n.mine);
 			const cellsToFlag = hintCell.neighbors.filter(isUnknown);
 			if (availableMinesToBring.length < cellsToAddMine.length) return false;
-
-			// // Don't pick the same choice N+1 times in a row
-			// if (boardInfo.lastNPerturbChoices.every(s => s === 'fill')) return false;
 			
 			// Try fill
 			const cellsToRemoveMine = shuffleArray(availableMinesToBring).slice(0, cellsToAddMine.length);
@@ -1246,9 +1244,6 @@
 			const availableCellsToGiveMines = unknownFarCells.filter(c => !c.mine);
 			const cellsToRemoveMine = hintCell.neighbors.filter(n => n.unknown && n.mine);
 			if (availableCellsToGiveMines.length < cellsToRemoveMine.length) return false;
-
-			// // Don't pick the same choice N+1 times in a row
-			// if (boardInfo.lastNPerturbChoices.every(s => s === 'clear')) return false;
 
 			// Try clear
 			const cellsToAddMine = shuffleArray(availableCellsToGiveMines).slice(0, cellsToRemoveMine.length);
@@ -1289,8 +1284,6 @@
 					}
 
 					if (choiceWorked) {
-						// boardInfo.lastNPerturbChoices.shift();
-						// boardInfo.lastNPerturbChoices.push(choice);
 						return true;
 					}
 				}
@@ -1322,7 +1315,7 @@
 				for (originalMine of undeducibleMines) {
 				
 					// Find a new location for this mine
-					let newMine = getRandomElement(allCells.filter(c => isUnknown(c) && isMine(c) && c.canBeMine));
+					let newMine = getRandomElement(allCells.filter(c => isUnknown(c) && isSafe(c) && c.canBeMine));
 
 					// If no possible locations to move the mine to, this function fails entirely
 					if (!newMine) return false;
@@ -1343,23 +1336,26 @@
 
 			const undeducibleMines = [];
 
-			// For each mine
-			for (originalMine of allCells.filter(c => c.mine && !c.flagged)) {
+			// For each undiscovered mine
+			for (originalMine of allCells.filter(c => isMine(c) && isUnknown(c))) {
 
 				// Check if it moving it to a neighbor spot will change any hints
-				const neighbors1 = originalMine.neighbors;
-				for (newMine of originalMine.neighbors.filter(n => !n.mine && !n.flagged)) {
-					const neighbors2 = newMine.neighbors;
+				for (newMine of originalMine.neighbors.filter(n => isSafe(n) && isUnknown(n))) {
+
+					const affectedNeighborHintCells = [...originalMine.neighbors, ...newMine.neighbors].filter(isSafe).filter(c => c !== originalMine && c !== newMine);
+
+					// If there are no hints around,
+					if (affectedNeighborHintCells.length === 0) continue;
 
 					// Remember what hints/blanks were
-					const originalHints = [...neighbors1, ...neighbors2].filter(n => n !== originalMine && n !== newMine && !n.mine).map(n => n.neighborMines);
+					const originalHints = affectedNeighborHintCells.map(n => n.neighborMines);
 
 					// Move mine to new location
 					removeMine(originalMine);
 					putMine(newMine);
 
-					// Check if hints/blanks are still the same
-					const newHints = [...neighbors1, ...neighbors2].filter(n => n !== originalMine && n !== newMine && !n.mine).map(n => n.neighborMines);
+					// Check new hints/blanks
+					const newHints = affectedNeighborHintCells.map(n => n.neighborMines);
 					const hintsIdentical = newHints.every((hint, index) => hint === originalHints[index]);
 
 					// Move mine back to original location
