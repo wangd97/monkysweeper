@@ -7,7 +7,7 @@
 	
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500&family=Play&display=swap" rel="stylesheet">
 
 	<script src="lib/jquery.js"></script>
 
@@ -1500,7 +1500,7 @@
 
 		function initializeAllThemes () {
 			const $style = $('#theme-style');
-			const themeNames = ['classic', ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
+			const themeNames = ['classic', 'monky', ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
 			const states = ['revealed', 'unknown', 'flagged', 'overflagged', 'mine'];
 
 			for (themeName of themeNames) {

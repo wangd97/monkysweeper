@@ -11,26 +11,6 @@
     --color7: rgb(0, 0, 0);
     --color8: rgb(128, 128, 128);
 }
-body {
-    background-image: url(../images/monkey-background.png);
-    height: 100vh;
-    cursor: url('../images/cursors/banana-covered-cursor.png') 4 1, default;
-}
-#container {
-    width: fit-content;
-    background-color: gray;
-    padding: 20px;
-    margin: auto;
-    cursor: url('../images/cursors/banana-peeled-cursor.png') 4 1, default;
-}
-#info-container {
-    display: flex;
-    flex-direction: row;
-    font: var(--info-font-size) 'Nunito';
-    font-weight: 400;
-    color: white;
-    margin-top: 5px;
-}
 .flexbox-left {
     display: flex;
     flex-direction: row;
@@ -53,20 +33,4 @@ body {
     -webkit-user-select: none; /* Safari */
     -ms-user-select: none; /* IE 10 and IE 11 */
     user-select: none; /* Standard syntax */
-}
-
-.square {
-    box-sizing: border-box;
-    text-align: center;
-    vertical-align: middle;
-    width: var(--cell-size);
-    height: var(--cell-size);
-    overflow: hidden;
-    margin: 0px;
-    padding: 0px;
-    line-height: 50pt;
-    font: var(--board-font-size) 'Nunito';
-    font-weight: 400;
-    background-repeat: no-repeat;
-    background-size: contain;
 }
