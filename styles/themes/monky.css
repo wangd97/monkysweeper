@@ -2,19 +2,21 @@
     --cell-border-size: 1px;
 }
 body {
-    background-image: url(../../images/backgrounds/classic-light.png);
+    background-image: url(../../images/backgrounds/monkey-background.png);
     height: 100vh;
+    cursor: url('../../images/cursors/banana-covered-cursor.png') 4 1, default;
 }
 #container {
     width: fit-content;
     background-color: gray;
     padding: 20px;
     margin: auto;
+    cursor: url('../../images/cursors/banana-peeled-cursor.png') 4 1, default;
 }
 #info-container {
     display: flex;
     flex-direction: row;
-    font: var(--info-font-size) 'Times';
+    font: var(--info-font-size) 'Nunito';
     font-weight: 400;
     color: white;
     margin-top: 5px;
@@ -36,7 +38,7 @@ body {
     margin: 0px;
     padding: 0px;
     line-height: 50pt;
-    font: var(--board-font-size) 'Play';
+    font: var(--board-font-size) 'Nunito';
     font-weight: 400;
     background-repeat: no-repeat;
     background-size: contain;
