@@ -3,7 +3,7 @@
 <head>
 	<title>Monkysweeper</title>
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
-	<link rel="stylesheet" href="lib/style.css">
+	<link rel="stylesheet" href="styles/main.css">
 	
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +15,7 @@
 	<script src="lib/seedrandom.js"></script>
 	<script>Math.seedrandom(rngSeed)</script>
 
+	<style id="theme-style"></style>
 </head>
 
 <body>
@@ -588,19 +589,20 @@
 			audio.play();
 			console.log('\nGame over!');
 
-			// Red flashes
-			animateFlash(2, 'rgb(255, 0, 0)');
+			// Exploded effect
+			animateFlash(2, 'lose');
 		}
 
 		function renderWin () {
 
-			// Flawless victory: yellow flashes
-			if (boardInfo.won && gameStats.numDeaths === 0 && gameStats.numHintsUsed === 0) {
-				animateFlash(3, 'rgb(255, 223, 0)');
-			}
-			// Cheated victory: white flashes
-			else if (boardInfo.won) {
-				animateFlash(2, 'rgb(255, 255, 255)');
+			// // Flawless victory: yellow flashes
+			// if (boardInfo.won && gameStats.numDeaths === 0 && gameStats.numHintsUsed === 0) {
+			// 	animateFlash(3, 'flawlessvictory');
+			// }
+
+			// Flashing effect
+			if (boardInfo.won) {
+				animateFlash(2, 'win');
 			}
 
 			console.log('\nCongratulations, you won!');
@@ -700,20 +702,19 @@
 				$cell.attr('class', 'square');
 
 				// Render visual state of this square
-				if (cell.exploded)
-					$cell.addClass('mine').addClass('exploded');
-				if (cell.revealed) {
+				if (cell.previewing)
 					$cell.addClass('revealed');
+				else if (cell.revealed) {
+					$cell.addClass('revealed');
+					if (cell.exploded)
+						$cell.addClass('mine');
 					if (cell.overflagged)
 						$cell.addClass('overflagged');
 				}
-				if (cell.unknown) {
+				else if (cell.unknown)
 					$cell.addClass('unknown');
-					if (cell.previewing)
-						$cell.addClass('previewing');
-				}
-				if (cell.flagged)
-						$cell.addClass('flagged');
+				else if (cell.flagged)
+					$cell.addClass('flagged');
 
 				// Render hint number of this square
 				if (isHint(cell)) {
@@ -729,16 +730,12 @@
 			}
 		}
 
-		function animateFlash (numFlashes = 2, cssColorString = 'red', millisecondsBetweenFlashes = 150) {
-			const flashStyle = $('<style id="flash-style">.square {background-color: ' + cssColorString + ' !important}</style>');
-
+		function animateFlash (numFlashes = 2, effectClassName, millisecondsBetweenFlashes = 150) {
 			for (let i = 0; i < numFlashes; i++) setTimeout(flashOnce, 2 * millisecondsBetweenFlashes * i);
-
+			
 			function flashOnce () {
-				$('body').append(flashStyle);
-				setTimeout(function () {
-					flashStyle.remove();
-				}, millisecondsBetweenFlashes);
+				$cells = $('.square').addClass(effectClassName);
+				setTimeout(() => $cells.removeClass(effectClassName), millisecondsBetweenFlashes);
 			}
 		}
 
@@ -1500,6 +1497,36 @@
 
 
 		resetGame();
+
+		function initializeAllThemes () {
+			const $style = $('#theme-style');
+			const themeNames = ['classic', ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
+			const states = ['revealed', 'unknown', 'flagged', 'overflagged', 'mine'];
+
+			for (themeName of themeNames) {
+				$link = $(`<link rel="stylesheet" href="styles/themes/${themeName}.css" class="theme-stylesheet" data-name="${themeName}" disabled>`);
+				$('head').append($link);
+
+				const rootUrl = `./images/icons/${themeName}`;
+				for (const state of states) {
+					const defaultBackground = `url(${rootUrl}/${state}.png)`;
+					$style.append(`
+						.square.${state} { background-image: ${defaultBackground}; }
+						.square.${state}.win { background-image: url(${rootUrl}/${state}-win.png), ${defaultBackground}; }
+						.square.${state}.lose { background-image: url(${rootUrl}/${state}-lose.png), ${defaultBackground}; }
+					`);
+				}
+			}
+		}
+
+		function applyTheme (themeName) {
+			$(`.theme-stylesheet`).prop('disabled', true);
+			$(`.theme-stylesheet[data-name=${themeName}]`).prop('disabled', false);
+		}
+
+		initializeAllThemes();
+		applyTheme('classic');
+
 	</script>
 
 </body>

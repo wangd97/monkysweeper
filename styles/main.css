@@ -10,11 +10,6 @@
     --color6: rgb(0, 128, 128);
     --color7: rgb(0, 0, 0);
     --color8: rgb(128, 128, 128);
-    --cell-background-color-revealed: rgb(218, 218, 218);
-    --cell-background-color-unknown: rgb(80, 80, 80);
-    --cell-background-color-overflagged: rgb(255, 153, 153);
-    --cell-background-color-exploded: rgb(255, 0, 0);
-    --cell-background-color-previewing: rgb(218, 218, 218);
 }
 body {
     background-image: url(../images/monkey-background.png);
@@ -55,15 +50,13 @@ body {
 #board {
     display: grid;
     grid-gap: 0;
-    border-collapse: collapse;
     -webkit-user-select: none; /* Safari */
     -ms-user-select: none; /* IE 10 and IE 11 */
     user-select: none; /* Standard syntax */
 }
 
 .square {
-    background-color: var(--cell-background-color-revealed);
-    border: 1px solid rgb(153, 153, 153);
+    box-sizing: border-box;
     text-align: center;
     vertical-align: middle;
     width: var(--cell-size);
@@ -74,30 +67,6 @@ body {
     line-height: 50pt;
     font: var(--board-font-size) 'Nunito';
     font-weight: 400;
-}
-.square.unknown {
-    background-color: var(--cell-background-color-unknown);
-}
-.square.unknown.previewing {
-    background-color: var(--cell-background-color-previewing);
-}
-.square.flagged {
-    background-color: var(--cell-background-color-unknown);
-    background-image: url('../images/banana.png');
     background-repeat: no-repeat;
     background-size: contain;
-}
-.square.revealed {
-    background-color: var(--cell-background-color-revealed);
-}
-.square.mine {
-    background-image: url('../images/monky.png');
-    background-repeat: no-repeat;
-    background-size: contain;
-}
-.square.exploded {
-    background-color: var(--cell-background-color-exploded);
-}
-.square.overflagged {
-    background-color: var(--cell-background-color-overflagged);
 }

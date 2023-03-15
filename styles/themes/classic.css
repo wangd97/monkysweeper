@@ -1,0 +1,20 @@
+:root {
+    --cell-border-size: 1px;
+}
+#board {
+    --border-size: 5px;
+    border-top: var(--border-size) solid rgb(153, 153, 153);
+    border-left: var(--border-size) solid rgb(153, 153, 153);
+    border-right: var(--border-size) solid white;
+    border-bottom: var(--border-size) solid white;
+}
+.square.revealed {
+    --border-color: rgb(153, 153, 153);
+    border-top: var(--cell-border-size) solid var(--border-color);
+    border-left: var(--cell-border-size) solid var(--border-color);
+}
+.square.unknown, .square.flagged {
+    --border-color: white;
+    border-top: var(--cell-border-size) solid var(--border-color);
+    border-left: var(--cell-border-size) solid var(--border-color);
+}
