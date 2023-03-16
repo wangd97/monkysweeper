@@ -3,11 +3,12 @@
 <head>
 	<title>Monkysweeper</title>
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
+	<link rel="stylesheet" href="styles/fonts.css">
 	<link rel="stylesheet" href="styles/main.css">
 	
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Nunito&family=Roboto+Mono&family=Play&family=Fragment+Mono&family=Aldrich&family=Fira+Code:wght@400;500;600&family=Oxanium:wght@400;500;600&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Passion+One&family=Nunito&family=Roboto+Mono&family=Tilt+Warp&family=Lilita+One&family=Rowdies&family=Play&family=Fragment+Mono&family=Fira+Code:wght@400;500;600&family=Oxanium:wght@400;500;600&display=swap" rel="stylesheet">
 
 
 
@@ -22,6 +23,9 @@
 </head>
 
 <body>
+
+	<div id="theme-selection">
+	</div>
 
 	<div id="container">
 		<div id="board"></div>
@@ -669,6 +673,9 @@
 				$(square).mousedown((e) => {
 					if (e.which === LEFT_CLICK) {
 						if (!boardInfo.isGameOver) gameStats.numLeftClicks++;
+						if (!board.isGameStarted) {
+							$(square).removeClass(`unknown`).addClass(`revealed`);
+						}
 						if (handleLeftClick(row, col)) {
 							gameStats.numSuccessfulLeftClicks++;
 							savestates.save();
@@ -810,7 +817,6 @@
 		let hintCells = [];
 
 		function deduce () {
-
 			// Game must be active
 			if (!boardInfo.isGameStarted) return false;
 			if (boardInfo.isGameOver) return false;
@@ -876,7 +882,11 @@
 		// The unknown cells of the cluster contain all the unknown neighbors of all the hints in the cluster
 		// This function deduces the flags and safe cells for all clusters
 		// This is relatively fast; use this when easy deduction fails
+		let dldtime = 0;
+		let totaltimestart = Date.now();
+		let totaltime = 0;
 		function doLocalDeduction () {
+			let time = Date.now();
 
 			// Find clusters
 			const clusters = findClustersToDeduce();
@@ -884,7 +894,10 @@
 			// Will deduce all clusters; unmark all for deduction
 			allCells.forEach(c => c.markedForDeduction = false);
 
-			return deduceClusters(clusters);
+			let madeChanges = deduceClusters(clusters);
+			totaltime = Date.now() - totaltimestart;
+			dldtime += Date.now() - time;
+			return madeChanges;
 		}
 
 		// This function deduces the flags and safe cells for the cluster that contains all the incomplete hints, and their neighboring unknown cells
@@ -951,13 +964,12 @@
 
 				// If a cell is always flagged, flag it
 				results.alwaysFlaggedCells.forEach(c => {
-					if (handleRightClick(c.row, c.col)) madeChanges = true;
+					if (isNotFlagged(c) && handleRightClick(c.row, c.col)) madeChanges = true;
 				});
 
-				// End this function as soon as any changes are made, to save time
-				if (madeChanges) {
-					break;
-				}
+				// if (madeChanges) {
+				// 	break;
+				// }
 			}
 
 			return madeChanges;
@@ -1118,7 +1130,7 @@
 				const numFlaggableCells = unknownNeighborCells.length;
 				if (numFlagsNeeded(cell) === numFlaggableCells) {
 					unknownNeighborCells.forEach(n => {
-						if (handleRightClick(n.row, n.col)) madeChanges = true;
+						if (isNotFlagged(n) && handleRightClick(n.row, n.col)) madeChanges = true;
 					});
 				}
 			}
@@ -1182,7 +1194,7 @@
 
 					// Flag all of mainCell's wing
 					for (const cellToFlag of mainCellWing) {
-						if (handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
+						if (isNotFlagged(cellToFlag) && handleRightClick(cellToFlag.row, cellToFlag.col)) madeChanges = true;
 					}
 
 					// Reveal all of subCell's wing
@@ -1495,9 +1507,18 @@
 
 
 		resetGame();
+		// Adding theme:
+		// - add theme name to array
+		// - create .css file (styles directory)
+		// - add images
+		// 	   - .svg/.png both work
+		// 	   - need at least 5: revealed, flagged, unknown, mine, overflagged
+		// 	   - -win/-lose are optional (for the flashes when you win/lose)
+		// 	   - preview-icon.svg/png is optional (for the left side themes menu)
+		const themeNames = [`classic`, `monky`, `funkymonky`, ];
+		const imgFormats = [`.svg`, `.png`, ];
 
-		function initializeAllThemes () {
-			const themeNames = [`classic`, `monky`, ]; // add theme name to array, create .css file (styles directory), add images (5 images mandatory, -win/-lose are optional)
+		function initializeAllThemeStyles () {
 			const cellStates = [`revealed`, `unknown`, `flagged`, `overflagged`, `mine`];
 
 			for (themeName of themeNames) {
@@ -1505,21 +1526,42 @@
 
 				const rootUrl = `./images/icons/${themeName}`;
 				for (const state of cellStates) {
-					const defaultBackground = `url(${rootUrl}/${state}.png)`;
+					const defaultBackground = `url(${rootUrl}/${state}.svg), url(${rootUrl}/${state}.png)`;
 					$(`#all-themes-style`).append(`
 						.theme-${themeName} .square.${state} { background-image: ${defaultBackground}; }
-						.theme-${themeName} .square.${state}.win { background-image: url(${rootUrl}/${state}-win.png), ${defaultBackground}; }
-						.theme-${themeName} .square.${state}.lose { background-image: url(${rootUrl}/${state}-lose.png), ${defaultBackground}; }
+						.theme-${themeName} .square.${state}.win { background-image: url(${rootUrl}/${state}-win.svg), url(${rootUrl}/${state}-win.png), ${defaultBackground}; }
+						.theme-${themeName} .square.${state}.lose { background-image: url(${rootUrl}/${state}-lose.svg), url(${rootUrl}/${state}-lose.png), ${defaultBackground}; }
 					`);
 				}
 			}
 		}
 
-		function applyTheme (themeName) {
-			$(`html`).attr(`class`, `theme-${themeName}`);
+		function initializeAllThemeButtons () {
+			for (const themeName of themeNames) {
+
+				const background = `url(images/icons/${themeName}/preview-icon.svg), url(images/icons/${themeName}/preview-icon.png)`;
+				const defaultBackground = `url(images/icons/${themeName}/flagged.svg), url(images/icons/${themeName}/flagged.png)`;
+				$(`#theme-selection`).append(`
+					<div class="button-background" style="background-image:${background}, ${defaultBackground}">
+						<div class="button-overlay" onclick="applyTheme('${themeName}')"></div>
+					</div>
+				`);
+
+			}
 		}
 
-		initializeAllThemes();
+		function applyTheme (themeName) {
+			$(`html`).attr(`class`, `theme-${themeName}`);
+			localStorage.setItem(`theme`, themeName);
+			resetGame();
+		}
+
+		initializeAllThemeStyles();
+		initializeAllThemeButtons();
+
+		const selectedTheme = localStorage.getItem(`theme`);
+		if (!selectedTheme) applyTheme(`classic`);
+		else applyTheme(selectedTheme);
 
 	</script>
 

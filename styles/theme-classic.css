@@ -1,1 +1,6 @@
 /* Empty; everything is in main.css */
+
+/* Only use this for Oxanium font */
+.theme-classic .square {
+    padding-top: 3px;
+}

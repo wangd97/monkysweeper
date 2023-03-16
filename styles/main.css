@@ -1,12 +1,12 @@
 :root {
     --cell-font: 'Oxanium';
     --info-font: 'Fira Code';
-    --cell-size: 33px;
+    --cell-size: 30px;
     --cell-border-size: 1px;
-    --cell-font-size: 26px;
+    --cell-font-size: 23px;
     --board-background-color: rgb(218, 218, 218);
     --board-border-size: 5px;
-    --info-font-size: 25px;
+    --info-font-size: 23px;
     --color1: rgb(0, 0, 255);
     --color2: rgb(0, 128, 0);
     --color3: rgb(255, 0, 0);
@@ -16,15 +16,25 @@
     --color7: rgb(0, 0, 0);
     --color8: rgb(128, 128, 128);
 }
-body {
+html {
+    margin: 0;
+    padding: 0;
     height: 100vh;
+}
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    padding-top: 7px;
     background-image: url(../images/backgrounds/classic-light.png);
 }
 #container {
     width: fit-content;
-    background-color: gray;
-    padding: 20px;
+    background-color: rgba(80, 80, 80, 0.95);
+    padding: 25px;
+    padding-bottom: 20px;
     margin: auto;
+    border-radius: 10px;
 }
 #board {
     background-color: var(--board-background-color);
@@ -52,7 +62,7 @@ body {
     background-size: cover;
     font-size: var(--cell-font-size);
     font-family: var(--cell-font);
-    font-weight: 500;
+    font-weight: 600;
 }
 .square.revealed {
     --border-color: rgb(153, 153, 153);
@@ -68,25 +78,60 @@ body {
     display: flex;
     flex-direction: row;
     color: white;
-    margin-top: 5px;
+    margin-top: 7px;
     font-size: var(--info-font-size);
     font-family: var(--info-font);
     font-weight: 400;
     color: white;
 }
+#info-container #timer {
+    width: 150px;
+}
 .flexbox-left {
     display: flex;
     flex-direction: row;
     margin-right: auto;
+    gap: 25px;
 }
 .flexbox-right {
     display: flex;
     flex-direction: row;
     margin-left: auto;
+    gap: 50px;
 }
-#info-container .flexbox-left div {
-    margin: 0 25px 0 2px;
+
+
+
+#theme-selection {
+    --border-radius: 8px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
-#info-container .flexbox-right div {
-    margin: 0 2px 0 25px;
+#theme-selection .button-background {
+    background-size: contain;
+    margin: 0;
+    padding: 0;
+    --size: 50px;
+    width: var(--size);
+    height: var(--size);
+    border: 3px solid rgb(30, 30, 30);
+    border-radius: var(--border-radius);
+}
+#theme-selection .button-overlay {
+    height: 100%;
+    width: 100%;
+    opacity: 0;
+    border-radius: var(--border-radius);
+}
+#theme-selection .button-overlay:hover {
+    background-color: white;
+    opacity: 0;
+}
+#theme-selection .button-overlay:active {
+    background-color: black;
+    opacity: 0.1;
 }

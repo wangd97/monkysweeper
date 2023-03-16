@@ -1,20 +1,21 @@
 .theme-monky {
     /* variables here */
-    --example-variable: 69;
 }
 .theme-monky body {
-    background-image: url(../images/backgrounds/monkey-background.png);
+    background-image: url(../images/backgrounds/monkey-banana-orange.jpg);
+    background-size: 50%;
     cursor: url('../images/cursors/banana-covered-cursor.png') 4 1, default;
 }
 .theme-monky #container {
     cursor: url('../images/cursors/banana-peeled-cursor.png') 4 1, default;
+    background-color: rgba(79, 79, 79, 0.95);
 }
 .theme-monky #info-container {
-    font-family: 'Nunito';
-    font-weight: 400;
+    font-family: 'Fira Code';
+    font-weight: 600;
     color: white;
 }
 .theme-monky .square {
-    font-family: 'Nunito';
-    font-weight: 400;
+    font-family: 'Roboto Mono';
+    font-weight: 600;
 }
