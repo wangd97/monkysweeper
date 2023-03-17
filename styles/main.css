@@ -120,6 +120,13 @@ body {
     height: var(--size);
     border: 3px solid rgb(30, 30, 30);
     border-radius: var(--border-radius);
+    filter: saturate(0.7);
+}
+#theme-selection .button-background.active-theme {
+    filter: saturate(1);
+}
+#theme-selection button {
+    all: unset;
 }
 #theme-selection .button-overlay {
     height: 100%;

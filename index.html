@@ -1542,8 +1542,8 @@
 				const background = `url(images/icons/${themeName}/preview-icon.svg), url(images/icons/${themeName}/preview-icon.png)`;
 				const defaultBackground = `url(images/icons/${themeName}/flagged.svg), url(images/icons/${themeName}/flagged.png)`;
 				$(`#theme-selection`).append(`
-					<div class="button-background" style="background-image:${background}, ${defaultBackground}">
-						<div class="button-overlay" onclick="applyTheme('${themeName}')"></div>
+					<div data-name="${themeName}" class="button-background" style="background-image:${background}, ${defaultBackground}">
+						<button type="button" class="button-overlay" onclick="applyTheme('${themeName}')"></button>
 					</div>
 				`);
 
@@ -1551,17 +1551,18 @@
 		}
 
 		function applyTheme (themeName) {
+			themeName ??= localStorage.getItem(`theme`);
+			if (!themeNames.includes(themeName)) themeName = `classic`;
+
 			$(`html`).attr(`class`, `theme-${themeName}`);
+			$(`.button-background`).removeClass(`active-theme`).filter(`[data-name=${themeName}]`).addClass(`active-theme`);
 			localStorage.setItem(`theme`, themeName);
 			resetGame();
 		}
 
 		initializeAllThemeStyles();
 		initializeAllThemeButtons();
-
-		const selectedTheme = localStorage.getItem(`theme`);
-		if (!selectedTheme) applyTheme(`classic`);
-		else applyTheme(selectedTheme);
+		applyTheme();
 
 	</script>
 
